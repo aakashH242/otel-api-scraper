@@ -2,6 +2,11 @@
 
 > Config-driven async bridge that turns any HTTP/data API into OpenTelemetry metrics and logs. 
 
+![Release](https://img.shields.io/github/v/release/aakashH242/otel-api-scraper?sort=semver)
+![Lint](https://img.shields.io/github/actions/workflow/status/aakashH242/otel-api-scraper/ci.yml?branch=main&label=lint)
+![Unit Tests](https://img.shields.io/github/actions/workflow/status/aakashH242/otel-api-scraper/ci.yml?branch=main&label=tests)
+[![Coverage](https://codecov.io/gh/aakashH242/otel-api-scraper/graph/badge.svg)](https://codecov.io/gh/aakashH242/otel-api-scraper)
+
 For those use-cases when you have data, jobs, or business processes buried behind APIs, reports, or CSV-style endpoints 
 and you want them to show up as first-class signals in your existing OTEL stack – without writing a custom exporter for each system.
 
