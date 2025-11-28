@@ -13,8 +13,8 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  # This gives "owner/repo" → used as image name.
-  IMAGE_NAME: ${{ github.repository }}
+  # Lowercase owner/repo for GHCR tags.
+  IMAGE_NAME: ${{ toLower(github.repository) }}
 
 jobs:
   release:
