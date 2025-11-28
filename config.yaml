@@ -1,0 +1,116 @@
+scraper:
+  enableSelfTelemetry: false
+  allowOverlapScans: false
+  logLevel: debug
+  otelCollectorEndpoint: "http://otel-collector:4317"
+  enforceTls: false
+  dryRun: false
+  terminateGracefully: true
+  servicePort: 8080
+  enableAdminApi: true
+  defaultTimeFormat: "%Y-%m-%dT%H:%M:%SZ"
+  maxGlobalConcurrency: 10
+  defaultSourceConcurrency: 4
+  otelTransport: grpc
+  fingerprintStore:
+    backend: sqlite
+    maxEntriesPerSource: 50000
+    defaultTtlSeconds: 86400
+    cleanupIntervalSeconds: 3600
+    sqlite:
+      path: "./scraper_fingerprints.db"
+
+sources:
+  - name: JSON-Placeholder
+    baseUrl: https://jsonplaceholder.typicode.com
+    endpoint: /posts
+    frequency: 3m
+    deltaDetection:
+      enabled: true
+      fingerprintMode: keys
+      fingerprintKeys:
+        - userId
+        - id
+    scrape:
+      type: instant
+      extraHeaders:
+        Accept: "application/json"
+    counterReadings:
+      - name: counts
+        fixedValue: 1
+    attributes:
+      - name: userId
+        dataKey: userId
+      - name: postId
+        dataKey: id
+    emitLogs: true
+    runFirstScrape: true
+
+#
+#  - name: Integration-Performance
+#    frequency: 3m
+#    deltaDetection:
+#      enabled: true
+#      fingerprintMode: keys
+#      fingerprintKeys:
+#        - Integration_System
+#        - Actual_Start_Date_and_Time
+#        - Status
+#      ttlSeconds: 300
+#      maxEntries: 512
+#    auth:
+#      type: basic
+#      username: api_user
+#      password: api_password
+#    scrape:
+#      type: range
+#      rangeKeys:
+#        runFirstScrape: true
+#        startKey: "From_Second"
+#        endKey: "To_Second"
+#        firstScrapeStart: '2025-11-28T00:00:00-00:00'
+#        dateFormat: "%Y-%m-%dT%H:%M:%S-00:00"
+#      urlEncodeTimeKeys: false
+#      extraHeaders:
+#        Content-Type: 'application/x-www-form-urlencoded'
+#      extraArgs:
+#        format: json
+#    endpoint: "/ccx/service/customreport2/jj/ISU_Observability_Rpt/Integration_Performance_API"
+#    baseUrl: "https://wd5-services1.myworkday.com"
+#    dataKey: Report_Entry
+#    gaugeReadings:
+#      - name: critical_errors
+#        dataKey: Background_Process_Completed_with_Critical_Errors
+#        unit: milliseconds
+#      - name: total_duration
+#        dataKey: Total_Duration__ms_
+#        unit: milliseconds
+#      - name: queue_duration
+#        dataKey: Queued_Time__ms_
+#        unit: milliseconds
+#      - name: processing_time
+#        dataKey: Processing_Time__ms_
+#        unit: milliseconds
+#    attributes:
+#      - name: Actual_Completed_Date_and_Time
+#        dataKey: Actual_Completed_Date_and_Time
+#      - name: Actual_Start_Date_and_Time
+#        dataKey: Actual_Start_Date_and_Time
+#      - name: Background_Process_Completed_with_Critical_Errors
+#        dataKey: Background_Process_Completed_with_Critical_Errors
+#      - name: Integration_Event_Status
+#        dataKey: Integration_Event_Status
+#      - name: Integration_System
+#        dataKey: Integration_System
+#      - name: Integration_Event
+#        dataKey: Integration_Event
+#      - name: Status
+#        dataKey: Status
+#    logStatusField:
+#      name: Status
+#      info:
+#        value: completed
+#        matchType: equals
+#      warning:
+#        value: warning
+#        matchType: in

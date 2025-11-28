@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  # 1. Lint commit messages on all pushes (including feature branches).
+  commitlint:
+    name: Lint commit messages
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref != 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Commitlint
+        uses: wagoid/commitlint-github-action@v6
+        with:
+          failOnWarnings: true
+
+  # 2. Enforce Conventional Commit style on PR titles targeting main.
+  semantic_pr_title:
+    name: Enforce Conventional PR title
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Optional: tweak allowed types/scopes if you want.
+          types: |
+            feat
+            fix
+            chore
+            docs
+            refactor
+            test
+            build
+            ci
+            perf
+
+  # 3. Lint, test (with coverage), and ensure Docker builds.
+  build_and_test:
+    name: Lint, test, coverage, docker build
+    runs-on: ubuntu-latest
+    # Run on:
+    # - all PRs
+    # - pushes to non-main branches
+    # - pushes to main (post-merge safety net)
+    if: >
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'push')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: pip install --no-cache-dir uv
+
+      - name: Sync dependencies
+        run: uv sync --frozen
+
+      - name: Lint
+        run: |
+          uv run ruff check .
+
+      - name: Test with coverage
+        run: |
+          uv run pytest --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=90
+
+      - name: Upload coverage to CodeCov
+        uses: codecov/codecov-action@v5
+        with:
+          fail_ci_if_error: false
+
+      - name: Docker build (no push)
+        run: |
+          docker build \
+            -t local/otel-api-scraper-ci:${GITHUB_SHA} \
+            .

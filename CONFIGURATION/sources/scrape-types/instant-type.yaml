@@ -1,0 +1,441 @@
+# Example: Instant-Type Scrape Configuration
+#
+# Instant scrapes collect the current state/snapshot without time parameters.
+# This example demonstrates monitoring API health metrics and current system status.
+#
+# Key Features:
+# - No time range parameters (instant snapshot)
+# - High-frequency monitoring (every minute)
+# - All metric labels come from attributes (no separate labels field)
+# - Delta detection for changed states
+# - Fixed-value metrics for availability tracking
+# - Attribute-to-metric mapping
+
+sources:
+  - name: "api-health-status"
+
+    # API endpoint configuration
+    baseUrl: "https://api.example.com"
+    endpoint: "/v1/health/services"
+
+    # Scrape every 1 minute for real-time monitoring
+    frequency: "1min"
+
+    # Authentication (if required)
+    auth:
+      type: apikey
+      keyName: "X-API-Key"
+      keyValue: HEALTH_API_KEY
+
+    # Instant scrape configuration
+    scrape:
+      # TYPE: instant - get current snapshot (no time range)
+      type: instant
+
+      # HTTP method
+      httpMethod: GET
+
+      # Run immediately when the scraper starts
+      runFirstScrape: true
+
+      # Additional headers
+      extraHeaders:
+        Accept: "application/json"
+
+      # Optional query parameters (no time-related params)
+      extraArgs:
+        include_metrics: true
+        format: json
+
+    # Extract data from response
+    # API returns: {"services": [...]}
+    dataKey: "services"
+
+    # Delta detection - only emit when service status changes
+    deltaDetection:
+      enabled: true
+      fingerprintMode: keys
+      # Fingerprint based on service state
+      fingerprintKeys:
+        - service_name
+        - status
+        - health_score
+      # Short TTL for health checks (re-emit after 5 minutes even if unchanged)
+      ttlSeconds: 300
+
+    # ============================================================
+    # METRICS CONFIGURATION
+    # ============================================================
+    # IMPORTANT: Counters and histograms do NOT have a separate 'labels' field.
+    # All labels come from the 'attributes' section below!
+
+    # Gauge metrics - current values
+    gaugeReadings:
+      # Service health score (0-100)
+      - name: "service_health_score"
+        dataKey: "health_score"
+        unit: "1"
+
+      # Current response time
+      - name: "service_response_time_ms"
+        dataKey: "avg_response_time_ms"
+        unit: "milliseconds"
+
+      # Active connections
+      - name: "service_active_connections"
+        dataKey: "active_connections"
+        unit: "1"
+
+      # CPU usage percentage
+      - name: "service_cpu_usage_percent"
+        dataKey: "cpu_usage"
+        unit: "1"
+
+      # Memory usage in MB
+      - name: "service_memory_usage_mb"
+        dataKey: "memory_mb"
+        unit: "megabytes"
+
+      # Request rate (requests per second)
+      - name: "service_request_rate"
+        dataKey: "requests_per_second"
+        unit: "{requests}/s"
+
+      # Error rate percentage
+      - name: "service_error_rate_percent"
+        dataKey: "error_rate"
+        unit: "1"
+
+    # Counter metrics - cumulative counts
+    counterReadings:
+      # Total requests processed since service start
+      # Labels: service_name, region, environment (from attributes)
+      - name: "service_requests_total"
+        valueKey: "total_requests"
+        unit: "1"
+
+      # Total errors encountered
+      # Labels: service_name, error_category (from attributes)
+      - name: "service_errors_total"
+        valueKey: "total_errors"
+        unit: "1"
+
+      # Count of services by status
+      # Each service record adds 1 to the counter
+      # Labels: service_name, status, region (from attributes)
+      - name: "service_status_count"
+        unit: "1"
+
+      # Service availability metric (1 per service)
+      # This creates a counter that can be used to track uptime
+      # Labels: service_name, status (from attributes)
+      - name: "service_uptime_total"
+        fixedValue: 1
+        unit: "1"
+
+    # Histogram metrics - distributions
+    histogramReadings:
+      # Distribution of response times across services
+      # Labels: service_name, status (from attributes)
+      - name: "service_response_time_distribution"
+        dataKey: "avg_response_time_ms"
+        unit: "milliseconds"
+        # Buckets from 1ms to 10 seconds
+        buckets: [1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000]
+
+      # Distribution of health scores
+      # Labels: service_name, region (from attributes)
+      - name: "service_health_score_distribution"
+        dataKey: "health_score"
+        unit: "1"
+        buckets: [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 100]
+
+      # Distribution of active connections
+      # Labels: service_name (from attributes)
+      - name: "service_connections_distribution"
+        dataKey: "active_connections"
+        unit: "1"
+        buckets: [0, 10, 50, 100, 500, 1000, 5000, 10000]
+
+      # Distribution of CPU usage across services
+      # Labels: service_name, instance_type (from attributes)
+      - name: "service_cpu_usage_distribution"
+        dataKey: "cpu_usage"
+        unit: "1"
+        buckets: [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+
+    # ============================================================
+    # ATTRIBUTES - These become labels on ALL metrics!
+    # ============================================================
+    attributes:
+      # Service identifier (will be a label on all metrics)
+      - name: "service_name"
+        dataKey: "name"
+
+      # Service status (healthy, degraded, unhealthy, down)
+      # This becomes a label on counters and histograms automatically
+      - name: "status"
+        dataKey: "status"
+        # Also emit status as a numeric metric
+        asMetric:
+          metricName: "service_status_code"
+          valueMapping:
+            "healthy": 1
+            "degraded": 0.5
+            "unhealthy": 0.25
+            "down": 0
+          unit: "1"
+
+      # Deployment region
+      - name: "region"
+        dataKey: "region"
+
+      # Environment (production, staging, development)
+      - name: "environment"
+        dataKey: "environment"
+
+      # Service version
+      - name: "version"
+        dataKey: "version"
+
+      # Instance type (for cloud deployments)
+      - name: "instance_type"
+        dataKey: "instance_type"
+
+      # Error category (if service is unhealthy)
+      - name: "error_category"
+        dataKey: "last_error_category"
+
+      # Deployment timestamp
+      - name: "deployed_at"
+        dataKey: "deployed_at"
+
+      # Last health check timestamp
+      - name: "last_checked_at"
+        dataKey: "last_check_time"
+
+      # Service owner/team
+      - name: "team"
+        dataKey: "team"
+
+      # Availability zone
+      - name: "availability_zone"
+        dataKey: "az"
+
+    # ============================================================
+    # LOG CONFIGURATION
+    # ============================================================
+
+    # Enable log generation for each service status
+    emitLogs: true
+
+    # Map service status to log severity
+    logStatusField:
+      name: "status"
+      info:
+        value: "healthy"
+        matchType: "equals"
+      warning:
+        value: "degraded"
+        matchType: "equals"
+      error:
+        value: ["unhealthy", "down"]
+        matchType: "in"
+
+# ============================================================
+# SECOND EXAMPLE: Current User Sessions (Instant Scrape)
+# ============================================================
+---
+sources:
+  - name: "active-user-sessions"
+
+    baseUrl: "https://api.example.com"
+    endpoint: "/v1/sessions/active"
+
+    # Check active sessions every 30 seconds
+    frequency: "30s"
+
+    auth:
+      type: oauth
+      token: SESSION_API_TOKEN
+
+    scrape:
+      # Instant scrape - get current active sessions
+      type: instant
+      httpMethod: GET
+      runFirstScrape: true
+      extraHeaders:
+        Accept: "application/json"
+
+    # Response: {"active_sessions": [...]}
+    dataKey: "active_sessions"
+
+    # No delta detection - we want all active sessions each time
+    # deltaDetection:
+    #   enabled: false
+
+    # Gauge metrics
+    gaugeReadings:
+      # Session duration in seconds
+      - name: "session_duration_seconds"
+        dataKey: "duration_seconds"
+        unit: "seconds"
+
+      # Idle time in seconds
+      - name: "session_idle_time_seconds"
+        dataKey: "idle_seconds"
+        unit: "seconds"
+
+      # Number of requests in this session
+      - name: "session_request_count"
+        dataKey: "request_count"
+        unit: "1"
+
+    # Counter metrics
+    counterReadings:
+      # Total active sessions
+      # Labels: user_role, device_type, region (from attributes)
+      - name: "active_sessions_total"
+        unit: "1"
+
+      # Track session creation
+      # Labels: user_role, auth_method (from attributes)
+      - name: "sessions_created_total"
+        fixedValue: 1
+        unit: "1"
+
+    # Histogram metrics
+    histogramReadings:
+      # Distribution of session durations
+      # Labels: user_role, device_type (from attributes)
+      - name: "session_duration_distribution"
+        dataKey: "duration_seconds"
+        unit: "seconds"
+        buckets: [60, 300, 600, 1800, 3600, 7200, 14400, 28800, 86400]
+
+      # Distribution of idle times
+      # Labels: user_role (from attributes)
+      - name: "session_idle_time_distribution"
+        dataKey: "idle_seconds"
+        unit: "seconds"
+        buckets: [10, 30, 60, 120, 300, 600, 1800, 3600]
+
+    # Attributes (become labels on all metrics)
+    attributes:
+      - name: "session_id"
+        dataKey: "session_id"
+
+      - name: "user_id"
+        dataKey: "user_id"
+
+      - name: "user_role"
+        dataKey: "role"
+
+      - name: "device_type"
+        dataKey: "device"
+        # Also create a metric mapping device types
+        asMetric:
+          metricName: "session_device_type"
+          valueMapping:
+            "desktop": 1
+            "mobile": 2
+            "tablet": 3
+            "api": 4
+          unit: "1"
+
+      - name: "auth_method"
+        dataKey: "auth_method"
+
+      - name: "region"
+        dataKey: "region"
+
+      - name: "ip_address"
+        dataKey: "ip"
+
+      - name: "user_agent"
+        dataKey: "user_agent"
+
+      - name: "created_at"
+        dataKey: "created_at"
+
+    emitLogs: true
+
+# ============================================================
+# EXAMPLE API RESPONSE (Health Status)
+# ============================================================
+# {
+#   "services": [
+#     {
+#       "name": "payment-api",
+#       "status": "healthy",
+#       "health_score": 98,
+#       "avg_response_time_ms": 45,
+#       "active_connections": 234,
+#       "cpu_usage": 23.5,
+#       "memory_mb": 1024,
+#       "requests_per_second": 150,
+#       "error_rate": 0.1,
+#       "total_requests": 1523456,
+#       "total_errors": 152,
+#       "region": "us-east-1",
+#       "environment": "production",
+#       "version": "2.3.1",
+#       "instance_type": "t3.medium",
+#       "last_error_category": null,
+#       "deployed_at": "2025-11-20T10:00:00Z",
+#       "last_check_time": "2025-11-28T10:15:00Z",
+#       "team": "payments",
+#       "az": "us-east-1a"
+#     },
+#     {
+#       "name": "user-auth-api",
+#       "status": "degraded",
+#       "health_score": 75,
+#       "avg_response_time_ms": 250,
+#       "active_connections": 567,
+#       "cpu_usage": 78.2,
+#       "memory_mb": 2048,
+#       "requests_per_second": 85,
+#       "error_rate": 2.5,
+#       "total_requests": 892345,
+#       "total_errors": 2231,
+#       "region": "eu-west-1",
+#       "environment": "production",
+#       "version": "1.9.2",
+#       "instance_type": "t3.large",
+#       "last_error_category": "high_latency",
+#       "deployed_at": "2025-11-25T14:30:00Z",
+#       "last_check_time": "2025-11-28T10:15:00Z",
+#       "team": "identity",
+#       "az": "eu-west-1b"
+#     }
+#   ]
+# }
+
+# ============================================================
+# RESULTING METRICS (Examples)
+# ============================================================
+# All metrics will have labels from attributes:
+# - service_name
+# - status
+# - region
+# - environment
+# - version
+# - instance_type
+# - etc.
+#
+# service_status_count{service_name="payment-api", status="healthy", region="us-east-1", environment="production"} = 1
+# service_status_count{service_name="user-auth-api", status="degraded", region="eu-west-1", environment="production"} = 1
+#
+# service_response_time_ms{service_name="payment-api", status="healthy", region="us-east-1"} = 45
+# service_response_time_ms{service_name="user-auth-api", status="degraded", region="eu-west-1"} = 250
+#
+# service_response_time_distribution{service_name="payment-api", status="healthy"}
+#   - bucket{le="50"} = 1
+#   - bucket{le="100"} = 1
+#   - count = 1
+#   - sum = 45
+#
+# service_status_code{service_name="payment-api", status="healthy"} = 1
+# service_status_code{service_name="user-auth-api", status="degraded"} = 0.5
+

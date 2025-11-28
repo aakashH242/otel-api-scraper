@@ -1,0 +1,66 @@
+# Example source configuration using Basic Authentication.
+# This pattern is common for APIs that use username/password authentication.
+
+sources:
+  - name: "internal-api-basic-auth"
+
+    # API base URL and endpoint
+    baseUrl: "https://api.internal.example.com"
+    endpoint: "/v1/metrics"
+
+    # How often to scrape this API
+    frequency: "10min"
+
+    # Basic authentication configuration
+    auth:
+      type: basic
+      # These are ENVIRONMENT VARIABLE NAMES, not the actual credentials
+      username: API_USERNAME  # Reads from os.environ["API_USERNAME"]
+      password: API_PASSWORD  # Reads from os.environ["API_PASSWORD"]
+
+    # Scrape configuration
+    scrape:
+      # Type: instant (get current snapshot)
+      type: instant
+
+      # HTTP method
+      httpMethod: GET
+
+      # Run immediately on startup
+      runFirstScrape: true
+
+      # Additional headers
+      extraHeaders:
+        Accept: "application/json"
+
+    # Data is nested under "data" key in the response
+    # Response format: {"data": [{"metric": "cpu", "value": 45.2}, ...]}
+    dataKey: "data"
+
+    # Define metrics to extract
+    gaugeReadings:
+      # Record metric values as gauges
+      - name: "api_metric_value"
+        dataKey: "value"
+        unit: "1"
+
+    counterReadings:
+      # Count total metrics received
+      - name: "metrics_total"
+        unit: "1"
+
+    # Define attributes to attach to telemetry
+    attributes:
+      - name: "metric_name"
+        dataKey: "metric"
+
+      - name: "metric_type"
+        dataKey: "type"
+
+    # Enable log generation
+    emitLogs: true
+
+# Environment variables required:
+# export API_USERNAME="your-username"
+# export API_PASSWORD="your-password"
+

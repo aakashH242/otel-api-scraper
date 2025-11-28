@@ -1,0 +1,168 @@
+# Example source configuration using Azure AD authentication.
+# This is used for accessing Azure-protected APIs or Microsoft services.
+
+sources:
+  - name: "azure-resource-metrics"
+
+    # Azure Resource Manager API
+    baseUrl: "https://management.azure.com"
+    endpoint: "/subscriptions/{subscription-id}/providers/Microsoft.Insights/metrics"
+
+    # How often to scrape this API
+    frequency: "5min"
+
+    # Azure AD authentication using service principal
+    auth:
+      type: azuread
+      # Service principal credentials
+      client_id: AZURE_CLIENT_ID          # Reads from os.environ["AZURE_CLIENT_ID"]
+      client_secret: AZURE_CLIENT_SECRET  # Reads from os.environ["AZURE_CLIENT_SECRET"]
+
+      # Azure AD token endpoint
+      # Replace {tenant-id} with your actual Azure AD tenant ID
+      tokenEndpoint: "https://login.microsoftonline.com/{tenant-id}/oauth2/token"
+
+      # The resource you're requesting access to
+      # For Azure Resource Manager, use: https://management.azure.com/
+      # For Microsoft Graph, use: https://graph.microsoft.com/
+      resource: "https://management.azure.com/"
+
+    # Scrape configuration
+    scrape:
+      # Type: range (scrape metrics over a time window)
+      type: range
+
+      # HTTP method
+      httpMethod: GET
+
+      # Run immediately on startup
+      runFirstScrape: true
+
+      # Time format (ISO 8601)
+      timeFormat: "%Y-%m-%dT%H:%M:%SZ"
+
+      # Range parameters configuration
+      rangeKeys:
+        startKey: "timespan"
+        # Azure uses a special format: startTime/endTime
+        # This will be handled by custom formatting in extraArgs
+
+      # Additional headers
+      extraHeaders:
+        Accept: "application/json"
+
+      # Additional query parameters
+      extraArgs:
+        api-version: "2021-05-01"
+        metricnames: "Percentage CPU,Network In,Network Out"
+        aggregation: "Average,Maximum"
+        interval: "PT5M"  # 5-minute intervals
+
+    # Data is nested under "value" key in Azure responses
+    # Response format: {"value": [{"name": {"value": "Percentage CPU"}, "timeseries": [...]}]}
+    dataKey: "value"
+
+    # Define metrics to extract
+    gaugeReadings:
+      # Azure metric values
+      - name: "azure_metric_value"
+        dataKey: "timeseries[0].data[0].average"
+        unit: "1"
+
+    counterReadings:
+      # Count metrics received
+      - name: "azure_metrics_total"
+        unit: "1"
+
+    # Define attributes to attach to telemetry
+    attributes:
+      - name: "metric_name"
+        dataKey: "name.value"
+
+      - name: "metric_unit"
+        dataKey: "unit"
+
+      - name: "resource_type"
+        dataKey: "type"
+
+    # Enable log generation
+    emitLogs: true
+
+# Alternative example: Microsoft Graph API
+---
+sources:
+  - name: "microsoft-graph-users"
+
+    # Microsoft Graph API
+    baseUrl: "https://graph.microsoft.com"
+    endpoint: "/v1.0/users"
+
+    frequency: "1h"
+
+    # Azure AD authentication for Microsoft Graph
+    auth:
+      type: azuread
+      client_id: AZURE_CLIENT_ID
+      client_secret: AZURE_CLIENT_SECRET
+      tokenEndpoint: "https://login.microsoftonline.com/{tenant-id}/oauth2/v2.0/token"
+      # For Microsoft Graph, the resource is different
+      resource: "https://graph.microsoft.com/.default"
+
+    scrape:
+      type: instant
+      httpMethod: GET
+      runFirstScrape: true
+      extraHeaders:
+        Accept: "application/json"
+      extraArgs:
+        $select: "displayName,userPrincipalName,accountEnabled,createdDateTime"
+        $top: 100
+
+    # Data is nested under "value" key
+    dataKey: "value"
+
+    # Enable delta detection
+    deltaDetection:
+      enabled: true
+      fingerprintMode: keys
+      fingerprintKeys:
+        - id
+        - userPrincipalName
+      ttlSeconds: 86400
+
+    # Define metrics
+    counterReadings:
+      - name: "azure_users_total"
+        unit: "1"
+
+    attributes:
+      - name: "user_id"
+        dataKey: "id"
+
+      - name: "user_principal_name"
+        dataKey: "userPrincipalName"
+
+      - name: "display_name"
+        dataKey: "displayName"
+
+      - name: "account_enabled"
+        dataKey: "accountEnabled"
+        asMetric:
+          metricName: "user_account_status"
+          valueMapping:
+            "true": 1
+            "false": 0
+          unit: "1"
+
+    emitLogs: true
+
+# Environment variables required:
+# export AZURE_CLIENT_ID="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+# export AZURE_CLIENT_SECRET="your-client-secret"
+#
+# To create a service principal in Azure:
+# 1. az ad sp create-for-rbac --name "otel-scraper" --role Reader --scopes /subscriptions/{subscription-id}
+# 2. Save the appId (client_id) and password (client_secret)
+# 3. Update the tokenEndpoint with your tenant ID
+# 4. Grant appropriate API permissions in Azure AD
+

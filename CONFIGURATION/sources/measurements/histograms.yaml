@@ -1,0 +1,324 @@
+# Histogram Metric Configuration Examples
+#
+# Histograms capture the distribution of numeric values over time.
+# They show percentiles, averages, and bucket distributions.
+# Perfect for response times, payload sizes, durations, scores, etc.
+#
+# There are TWO ways to configure histogram values:
+# 1. From field in data (most common) - use dataKey
+# 2. Fixed value (less common) - use fixedValue
+#
+# All labels come from the 'attributes' section (no separate labels field!)
+
+sources:
+  - name: "histogram-examples"
+
+    baseUrl: "https://api.example.com"
+    endpoint: "/v1/performance"
+    frequency: "2min"
+
+    scrape:
+      type: instant
+      runFirstScrape: true
+
+    # Sample API response for reference:
+    # [
+    #   {
+    #     "request_id": "req-123",
+    #     "endpoint": "/api/users",
+    #     "method": "GET",
+    #     "response_time_ms": 45,
+    #     "response_size_bytes": 2048,
+    #     "cpu_usage_percent": 23.5,
+    #     "memory_mb": 512,
+    #     "queue_depth": 15,
+    #     "error_rate_percent": 0.5,
+    #     "status_code": 200,
+    #     "region": "us-east-1"
+    #   },
+    #   {
+    #     "request_id": "req-124",
+    #     "endpoint": "/api/orders",
+    #     "method": "POST",
+    #     "response_time_ms": 850,
+    #     "response_size_bytes": 15360,
+    #     "cpu_usage_percent": 78.2,
+    #     "memory_mb": 1024,
+    #     "queue_depth": 45,
+    #     "error_rate_percent": 2.1,
+    #     "status_code": 500,
+    #     "region": "eu-west-1"
+    #   }
+    # ]
+
+    # ============================================================
+    # HISTOGRAM EXAMPLES - Both Value Types
+    # ============================================================
+
+    histogramReadings:
+      # ------------------------------------------------------
+      # 1. FROM FIELD IN DATA (most common pattern)
+      # ------------------------------------------------------
+      # Use dataKey to extract values from record fields
+      # Each record contributes one observation to the histogram
+
+      - name: "request_response_time"
+        dataKey: "response_time_ms"
+        unit: "milliseconds"
+        # Buckets optimized for web API response times (1ms to 30 seconds)
+        buckets: [1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 30000]
+        # Record 1: observes 45ms, Record 2: observes 850ms
+        # Labels from attributes: endpoint, method, status_code, region
+
+      - name: "response_payload_size"
+        dataKey: "response_size_bytes"
+        unit: "bytes"
+        # Buckets for payload sizes (1KB to 100MB)
+        buckets: [1024, 4096, 16384, 65536, 262144, 1048576, 4194304, 16777216, 67108864, 104857600]
+        # Record 1: observes 2048 bytes, Record 2: observes 15360 bytes
+
+      - name: "cpu_utilization"
+        dataKey: "cpu_usage_percent"
+        unit: "percent"
+        # Buckets for CPU percentage (0% to 100%)
+        buckets: [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 100]
+        # Record 1: observes 23.5%, Record 2: observes 78.2%
+
+      - name: "memory_consumption"
+        dataKey: "memory_mb"
+        unit: "megabytes"
+        # Buckets for memory usage (1MB to 16GB)
+        buckets: [1, 16, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384]
+        # Record 1: observes 512MB, Record 2: observes 1024MB
+
+      - name: "system_queue_depth"
+        dataKey: "queue_depth"
+        unit: "1"
+        # Buckets for queue sizes
+        buckets: [0, 1, 5, 10, 20, 50, 100, 200, 500, 1000]
+        # Record 1: observes 15, Record 2: observes 45
+
+      - name: "error_rate_distribution"
+        dataKey: "error_rate_percent"
+        unit: "percent"
+        # Buckets for error rates (0% to 50%)
+        buckets: [0, 0.1, 0.5, 1, 2, 5, 10, 20, 50]
+        # Record 1: observes 0.5%, Record 2: observes 2.1%
+
+      # ------------------------------------------------------
+      # 2. NESTED/COMPUTED FIELD EXTRACTION
+      # ------------------------------------------------------
+      # Extract values from nested objects or computed fields
+
+      - name: "processing_duration_seconds"
+        dataKey: "timing.processing_duration_ms"
+        unit: "seconds"
+        buckets: [0.001, 0.01, 0.1, 0.5, 1, 2, 5, 10, 30]
+        # If API response has nested timing data
+
+      - name: "user_score_distribution"
+        dataKey: "metrics.user_satisfaction_score"
+        unit: "1"
+        buckets: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        # If extracting from nested metrics object
+
+      # ------------------------------------------------------
+      # 3. FIXED VALUE (less common but useful)
+      # ------------------------------------------------------
+      # Use fixedValue when you want every record to contribute
+      # the same value to the histogram distribution
+
+      - name: "request_weight_distribution"
+        fixedValue: 1
+        unit: "1"
+        buckets: [0.5, 1, 1.5, 2, 2.5, 3, 4, 5]
+        # Every record contributes value "1" to the histogram
+        # Useful for counting distribution patterns across labels
+
+      - name: "service_priority_distribution"
+        fixedValue: 5
+        unit: "1"
+        buckets: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        # Every record contributes priority "5"
+        # Could be used with different sources having different priorities
+
+      # ------------------------------------------------------
+      # 4. BUSINESS-SPECIFIC METRICS
+      # ------------------------------------------------------
+
+      - name: "transaction_amount_distribution"
+        dataKey: "transaction_amount_cents"
+        unit: "cents"
+        # Buckets for money amounts ($0.01 to $10,000)
+        buckets: [1, 10, 100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 1000000]
+        # If tracking payment/transaction amounts
+
+      - name: "file_size_distribution"
+        dataKey: "uploaded_file_size_bytes"
+        unit: "bytes"
+        # Buckets for file uploads (1KB to 1GB)
+        buckets: [1024, 10240, 102400, 1048576, 10485760, 104857600, 1073741824]
+        # If tracking file upload sizes
+
+      - name: "api_rate_limit_usage"
+        dataKey: "rate_limit_consumed_percent"
+        unit: "percent"
+        buckets: [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 99, 100]
+        # Track rate limit consumption patterns
+
+      # ------------------------------------------------------
+      # 5. SPECIALIZED USE CASES
+      # ------------------------------------------------------
+
+      - name: "retry_count_distribution"
+        dataKey: "retry_attempts"
+        unit: "1"
+        buckets: [0, 1, 2, 3, 4, 5, 10, 20]
+        # Track how often requests need retries
+
+      - name: "batch_size_distribution"
+        dataKey: "batch_record_count"
+        unit: "1"
+        buckets: [1, 10, 50, 100, 500, 1000, 5000, 10000]
+        # Track batch processing sizes
+
+      - name: "connection_pool_usage"
+        dataKey: "active_connections"
+        unit: "1"
+        buckets: [0, 1, 5, 10, 25, 50, 100, 200, 500]
+        # Track database connection pool usage
+
+    # ============================================================
+    # ATTRIBUTES - These become labels on ALL histogram metrics!
+    # ============================================================
+
+    attributes:
+      - name: "endpoint"
+        dataKey: "endpoint"
+        # Labels: endpoint=/api/users, endpoint=/api/orders
+
+      - name: "method"
+        dataKey: "method"
+        # Labels: method=GET, method=POST, method=PUT, method=DELETE
+
+      - name: "status_code"
+        dataKey: "status_code"
+        # Labels: status_code=200, status_code=404, status_code=500
+        # Convert to status category metric
+        asMetric:
+          metricName: "response_status_category"
+          valueMapping:
+            "200": 1  # Success
+            "404": 2  # Client Error
+            "500": 3  # Server Error
+          unit: "1"
+
+      - name: "region"
+        dataKey: "region"
+        # Labels: region=us-east-1, region=eu-west-1
+
+      - name: "service_version"
+        dataKey: "version"
+        # Labels: service_version=v1.2.3
+
+      - name: "request_id"
+        dataKey: "request_id"
+        # Usually too high cardinality for production
+        # But useful for debugging/development
+
+# ============================================================
+# RESULTING PROMETHEUS METRICS
+# ============================================================
+
+# Histogram metrics provide rich statistical information:
+
+# request_response_time{endpoint="/api/users", method="GET", status_code="200", region="us-east-1"}
+#   - bucket{le="50"} = 1      (1 request ≤ 50ms)
+#   - bucket{le="100"} = 1     (1 request ≤ 100ms)
+#   - bucket{le="1000"} = 2    (2 requests ≤ 1000ms)
+#   - bucket{le="+Inf"} = 2    (total count)
+#   - sum = 895                (45ms + 850ms)
+#   - count = 2                (total observations)
+
+# From this you can calculate:
+# - Average: sum/count = 895/2 = 447.5ms
+# - 50th percentile (median): histogram_quantile(0.5, request_response_time)
+# - 95th percentile: histogram_quantile(0.95, request_response_time)
+# - 99th percentile: histogram_quantile(0.99, request_response_time)
+
+# response_payload_size{endpoint="/api/orders", method="POST", status_code="500"}
+#   - bucket{le="16384"} = 1   (1 response ≤ 16KB)
+#   - bucket{le="65536"} = 1   (1 response ≤ 64KB)
+#   - sum = 15360              (total bytes)
+#   - count = 1                (total observations)
+
+# ============================================================
+# BUCKET DESIGN GUIDELINES
+# ============================================================
+
+# 1. RESPONSE TIMES:
+#    - Web APIs: [1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 30000]
+#    - Database: [0.1, 0.5, 1, 2, 5, 10, 25, 50, 100, 250, 500, 1000]
+#    - Microservices: [1, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000]
+
+# 2. PAYLOAD SIZES:
+#    - Small APIs: [1024, 4096, 16384, 65536, 262144, 1048576]  # 1KB - 1MB
+#    - File uploads: [1048576, 10485760, 104857600, 1073741824] # 1MB - 1GB
+#    - Streaming: [4096, 65536, 1048576, 16777216, 268435456]   # 4KB - 256MB
+
+# 3. PERCENTAGES (CPU, memory, error rates):
+#    - [0, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 99, 100]
+
+# 4. QUEUE DEPTHS/COUNTS:
+#    - [0, 1, 5, 10, 20, 50, 100, 200, 500, 1000, 5000]
+
+# 5. MONEY/BUSINESS METRICS:
+#    - [1, 10, 100, 1000, 5000, 10000, 50000, 100000, 500000, 1000000]
+
+# ============================================================
+# WHEN TO USE HISTOGRAMS
+# ============================================================
+
+# ✅ USE HISTOGRAMS FOR:
+# - Response/processing times and latencies
+# - Request/response payload sizes
+# - Resource utilization (CPU, memory, disk)
+# - Queue depths and batch sizes
+# - Business metrics with distribution (prices, scores, ratings)
+# - Any numeric value where percentiles matter
+
+# ❌ DON'T USE HISTOGRAMS FOR:
+# - Boolean values (use counters instead)
+# - IDs or categorical data (use attributes/labels)
+# - Values that don't need distribution analysis
+# - Very high cardinality data (will create too many buckets)
+
+# ============================================================
+# IMPORTANT NOTES
+# ============================================================
+
+# 1. BUCKET BOUNDARIES ARE UPPER BOUNDS (≤):
+#    - bucket{le="100"} counts all values ≤ 100
+#    - Values are automatically sorted into appropriate buckets
+#    - Always include +Inf bucket (automatic)
+
+# 2. PRIORITY: fixedValue > dataKey
+#    - If fixedValue is set, it's used (ignores dataKey)
+#    - If no fixedValue but dataKey is set, uses field value
+#    - If dataKey field is missing/null: skips record (no observation)
+
+# 3. ERROR HANDLING:
+#    - If dataKey field is non-numeric: skips record
+#    - fixedValue must be numeric (validated at startup)
+#    - Missing dataKey values don't create errors
+
+# 4. PERFORMANCE CONSIDERATIONS:
+#    - More buckets = more memory and storage
+#    - Balance between accuracy and performance
+#    - 10-20 buckets is usually sufficient
+#    - Avoid creating hundreds of buckets
+
+# 5. ALL HISTOGRAMS GET ALL ATTRIBUTES AS LABELS:
+#    - Every histogram gets every attribute as a label
+#    - High cardinality labels create many time series
+#    - Be careful with unique IDs as labels (exponential explosion)

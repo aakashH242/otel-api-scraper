@@ -1,0 +1,7 @@
+# When adminAPI is enabled, the admin token must be pre-generated and stored in an enviroment variable.
+scraper:
+  logLevel: info
+  otelCollectorEndpoint: http://change-me
+  enableAdminApi: true
+  # Name of the environment variable containing the admin secret (required when enableAdminApi: true).
+  adminSecretEnv: admin_secret

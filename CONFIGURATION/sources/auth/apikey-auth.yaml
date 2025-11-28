@@ -1,0 +1,121 @@
+# Example source configuration using API Key authentication.
+# This is one of the most common authentication methods for modern APIs.
+
+sources:
+  - name: "stripe-charges"
+
+    # API base URL and endpoint
+    baseUrl: "https://api.stripe.com"
+    endpoint: "/v1/charges"
+
+    # How often to scrape this API
+    frequency: "15min"
+
+    # API Key authentication configuration
+    auth:
+      type: apikey
+      # Header name that the API expects
+      keyName: "Authorization"
+      # Environment variable name containing the API key
+      # The actual value might be: "Bearer sk_live_xxxxx"
+      keyValue: STRIPE_API_KEY  # Reads from os.environ["STRIPE_API_KEY"]
+
+    # Scrape configuration
+    scrape:
+      # Type: range (scrape data over a time window)
+      type: range
+
+      # HTTP method
+      httpMethod: GET
+
+      # Run immediately on startup
+      runFirstScrape: true
+
+      # Time format for this API (Unix timestamp in seconds)
+      timeFormat: "%s"
+
+      # Range parameters configuration
+      rangeKeys:
+        # Stripe uses created[gte] and created[lte] for filtering
+        startKey: "created[gte]"
+        endKey: "created[lte]"
+        # Start historical scraping from this date
+        firstScrapeStart: "2025-01-01T00:00:00Z"
+
+      # Additional query parameters
+      extraArgs:
+        limit: 100  # Fetch up to 100 records per request
+
+    # Data is nested under "data" key in Stripe responses
+    # Response format: {"data": [{"id": "ch_xxx", "amount": 1000, ...}], "has_more": false}
+    dataKey: "data"
+
+    # Enable delta detection to avoid re-processing the same charges
+    deltaDetection:
+      enabled: true
+      fingerprintMode: keys
+      fingerprintKeys:
+        - id  # Stripe charge ID is unique
+      ttlSeconds: 86400  # 24 hours
+
+    # Define metrics to extract
+    counterReadings:
+      # Track total charge amount
+      - name: "charges_amount_total"
+        valueKey: "amount"  # Amount in cents
+        unit: "1"
+
+      # Count number of charges
+      - name: "charges_count"
+        unit: "1"
+
+    histogramReadings:
+      # Distribution of charge amounts
+      - name: "charge_amount_distribution"
+        dataKey: "amount"
+        unit: "1"
+        buckets: [100, 500, 1000, 5000, 10000, 50000, 100000]
+
+    # Define attributes to attach to telemetry
+    attributes:
+      - name: "charge_id"
+        dataKey: "id"
+
+      - name: "customer_id"
+        dataKey: "customer"
+
+      - name: "currency"
+        dataKey: "currency"
+
+      - name: "status"
+        dataKey: "status"
+        # Also emit status as a metric
+        asMetric:
+          metricName: "charge_status_code"
+          valueMapping:
+            "succeeded": 1
+            "pending": 0.5
+            "failed": 0
+          unit: "1"
+
+    # Enable log generation
+    emitLogs: true
+
+    # Set log severity based on charge status
+    logStatusField:
+      name: "status"
+      info:
+        value: "succeeded"
+        matchType: "equals"
+      warning:
+        value: "pending"
+        matchType: "equals"
+      error:
+        value: "failed"
+        matchType: "equals"
+
+# Environment variables required:
+# export STRIPE_API_KEY="Bearer sk_live_xxxxxxxxxxxxx"
+# or
+# export STRIPE_API_KEY="sk_live_xxxxxxxxxxxxx"
+

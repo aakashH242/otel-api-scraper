@@ -1,0 +1,7 @@
+# Minimal configuration with self-telemetry enabled
+# Telemetry data for the service will be available under the resource name - otel-api-scrapper
+
+scraper:
+  enableSelfTelemetry: true
+  logLevel: info
+  otelCollectorEndpoint: http://change-me

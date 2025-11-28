@@ -1,0 +1,68 @@
+
+services:
+  scraper:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    volumes:
+      - ../config.yaml:/app/config.yaml
+    depends_on:
+      - otel-collector
+    networks:
+      - otel-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    volumes:
+      - ./config/grafana.ini:/etc/grafana/grafana.ini
+      - ./config/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    networks:
+      - otel-network
+
+  loki:
+    image: grafana/loki:3.1.0
+    volumes:
+      - ./config/loki-config.yml:/etc/loki/loki-config.yml
+    ports:
+      - "3100:3100"
+      - "9096:9096"
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki-config.yml
+    networks:
+      - otel-network
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    networks:
+      - otel-network
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.140.0
+    volumes:
+      - ./config/collector.yaml:/etc/otelcol-contrib/config.yaml
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "8889:8889"
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+      - loki
+      - grafana
+    networks:
+      - otel-network
+
+networks:
+  otel-network:
+    driver: bridge

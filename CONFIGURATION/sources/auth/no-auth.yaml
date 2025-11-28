@@ -1,0 +1,68 @@
+# Example source configuration for a public API endpoint that requires no authentication.
+# This example uses JSONPlaceholder, a free fake REST API for testing and prototyping.
+
+sources:
+  - name: "json-placeholder-posts"
+
+    # API base URL and endpoint
+    baseUrl: "https://jsonplaceholder.typicode.com"
+    endpoint: "/posts"
+
+    # How often to scrape this API
+    frequency: "5min"
+
+    # No auth section needed for public APIs
+    # auth: (omitted)
+
+    # Scrape configuration
+    scrape:
+      # Type: instant (get current snapshot, no time range)
+      type: instant
+
+      # HTTP method
+      httpMethod: GET
+
+      # Run immediately on startup
+      runFirstScrape: true
+
+      # Optional headers to send with requests
+      extraHeaders:
+        Accept: "application/json"
+        User-Agent: "otel-api-scraper/1.0"
+
+    # The entire response is an array, so no dataKey needed
+    # Response format: [{"userId": 1, "id": 1, "title": "...", "body": "..."}, ...]
+    # dataKey: null  # Omitted - treat entire response as data
+
+    # Enable delta detection to avoid re-emitting the same posts
+    deltaDetection:
+      enabled: true
+      fingerprintMode: keys
+      fingerprintKeys:
+        - userId
+        - id
+      ttlSeconds: 86400  # 24 hours
+
+    # Define metrics to extract
+    counterReadings:
+      # Count total posts processed
+      - name: "posts_total"
+        # Each record contributes 1 to the counter
+        unit: "1"
+
+    # Define attributes to attach to telemetry
+    attributes:
+      - name: "user_id"
+        dataKey: "userId"
+
+      - name: "post_id"
+        dataKey: "id"
+
+      - name: "title"
+        dataKey: "title"
+
+    # Enable log generation
+    emitLogs: true
+
+    # All logs will be info level since we don't have a status field
+    # logStatusField: (omitted)
