@@ -18,7 +18,8 @@ RUN pip install --no-cache-dir uv
 COPY config.yaml config.yaml.template /app/
 COPY src /app/src
 
-RUN uv sync --locked --no-dev
+# Sync dependencies for runtime only; refresh lock inside the container if needed.
+RUN uv lock && uv sync --no-dev
 
 ENV SCRAPER_CONFIG=/app/config.yaml
 CMD ["uv", "run", "--no-sync", "otel-api-scraper"]
