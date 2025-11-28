@@ -234,11 +234,11 @@ class ScraperEngine:
                         derived = -abs(derived)
                     value = derived
                 params["value"] = value
-                if (
-                    rk.secondFirstScrapeStart
-                    and not await self.state_store.get_last_success(source.name)
+                second_first = getattr(rk, "secondFirstScrapeStart", None)
+                if second_first and not await self.state_store.get_last_success(
+                    source.name
                 ):
-                    params["from"] = rk.secondFirstScrapeStart
+                    params["from"] = second_first
 
         for key, val in scrape_cfg.extraArgs.items():
             if isinstance(val, dict) and "noEncodeValue" in val:
