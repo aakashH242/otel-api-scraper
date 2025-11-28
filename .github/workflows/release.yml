@@ -24,12 +24,12 @@ jobs:
     steps:
       - name: Run release-please
         id: release
-        uses: google-github-actions/release-please-action@v4
+        uses: googleapis/release-please-action@v4
         with:
           # For a Python project; adjust if you prefer "simple" or another type.
           release-type: python
           # Optional: use manifest if you want; leaving basic for now.
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
           # If you later need other files bumped, configure release-please config JSON.
 
       # Only run the rest when a new release was actually created
