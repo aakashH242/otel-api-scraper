@@ -13,8 +13,6 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  # Lowercase owner/repo for GHCR tags.
-  IMAGE_NAME: ${{ toLower(github.repository) }}
 
 jobs:
   release:
@@ -36,6 +34,10 @@ jobs:
       - name: Checkout source
         if: ${{ steps.release.outputs.release_created == 'true' }}
         uses: actions/checkout@v4
+
+      - name: Normalize image name (lowercase owner/repo)
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        run: echo "IMAGE_NAME=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
       - name: Set up Docker Buildx
         if: ${{ steps.release.outputs.release_created == 'true' }}
