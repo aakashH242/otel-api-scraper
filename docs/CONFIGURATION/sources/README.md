@@ -728,12 +728,12 @@ For comprehensive, working examples of specific configuration aspects, see these
 
 ### 🔐 [Authentication Examples](./auth/)
 Complete examples for all supported authentication methods:
-- **[No Authentication](./auth/no-auth.yaml)** - Public APIs
-- **[Basic Auth](./auth/basic-auth.yaml)** - Username/password authentication
-- **[API Key Auth](./auth/apikey-auth.yaml)** - Header-based API keys (Stripe example)
-- **[OAuth Static Token](./auth/oauth-static-token.yaml)** - Pre-generated tokens (GitHub example)
-- **[OAuth Runtime Token](./auth/oauth-runtime-token.yaml)** - Dynamic token acquisition
-- **[Azure AD Auth](./auth/azuread-auth.yaml)** - Microsoft Azure/Office 365 APIs
+- **[No Authentication](auth/no-auth.yaml)** - Public APIs
+- **[Basic Auth](auth/basic-auth.yaml)** - Username/password authentication
+- **[API Key Auth](auth/apikey-auth.yaml)** - Header-based API keys (Stripe example)
+- **[OAuth Static Token](auth/oauth-static-token.yaml)** - Pre-generated tokens (GitHub example)
+- **[OAuth Runtime Token](auth/oauth-runtime-token.yaml)** - Dynamic token acquisition
+- **[Azure AD Auth](auth/azuread-auth.yaml)** - Microsoft Azure/Office 365 APIs
 
 Each example includes:
 - ✅ Complete working configuration
@@ -743,8 +743,8 @@ Each example includes:
 
 ### ⏱️ [Scrape Types Examples](./scrape-types/)
 Comprehensive examples for both scrape types:
-- **[Range-Type Scraping](./scrape-types/range-type.yaml)** - Time-window based data collection
-- **[Instant-Type Scraping](./scrape-types/instant-type.yaml)** - Current state snapshots
+- **[Range-Type Scraping](scrape-types/range-type.yaml)** - Time-window based data collection
+- **[Instant-Type Scraping](scrape-types/instant-type.yaml)** - Current state snapshots
 
 Key differences explained:
 - When to use range vs instant
@@ -754,9 +754,9 @@ Key differences explained:
 
 ### 📊 [Measurement Types Examples](./measurements/)
 Detailed examples for all three metric types:
-- **[Counter Metrics](./measurements/counters.yaml)** - Monotonically increasing values
-- **[Histogram Metrics](./measurements/histograms.yaml)** - Value distributions and percentiles
-- **[Gauge Metrics](./measurements/gauges.yaml)** - Point-in-time current values
+- **[Counter Metrics](measurements/counters.yaml)** - Monotonically increasing values
+- **[Histogram Metrics](measurements/histograms.yaml)** - Value distributions and percentiles
+- **[Gauge Metrics](measurements/gauges.yaml)** - Point-in-time current values
 
 Each shows all value configuration options:
 - From data fields (`dataKey`/`valueKey`)

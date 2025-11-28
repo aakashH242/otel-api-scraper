@@ -368,18 +368,13 @@ uv run pytest -v --tb=short
 
 ## 🎯 Contribution Areas
 
-We welcome contributions in these areas:
+Please check our [Roadmap](./ROADMAP.md) to find planned items we welcome contributions for.
 
-### High Priority
-- **New authentication strategies** (SAML, Kerberos, mTLS)
-- **Additional data formats** (XML, Parquet, Protocol Buffers)
-- **Performance optimizations** in core scraping loops
-- **Test coverage improvements** (targeting 95%+)
+Beyond the roadmap, contributions in these areas are most welcome:
 
-### Medium Priority  
+### Ease-of-Use and Stability 
 - **Built-in connector templates** for popular SaaS (Salesforce, Jira, etc.)
 - **Enhanced error handling** and retry mechanisms
-- **Monitoring and alerting features**
 - **Configuration validation improvements**
 
 ### Documentation & Examples

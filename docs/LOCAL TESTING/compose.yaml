@@ -2,8 +2,8 @@
 services:
   scraper:
     build:
-      context: ..
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: ../../Dockerfile
     volumes:
       - ../config.yaml:/app/config.yaml
     depends_on:

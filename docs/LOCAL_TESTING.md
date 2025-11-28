@@ -1,10 +1,11 @@
 # Local Testing: Grafana + Loki + Prometheus + OTEL Collector
 
-This guide spins up a local observability stack (Grafana, Loki, Prometheus, OTEL Collector) so you can develop and validate the scraper end-to-end. Requires Docker and docker-compose (or compatible, e.g., Podman + podman-compose).
+This guide spins up a local observability stack (Grafana, Loki, Prometheus, OTEL Collector) so you can run and validate the scraper end-to-end. Requires Docker and docker-compose (or compatible, e.g., Podman + podman-compose).
+You can also adjust these values for your deployment needs.
 
 ## Prerequisites
 - Docker (or Podman) and docker-compose available on your PATH.
-- The scraper config ([`config.yaml`](config.yaml)) should point to the local OTLP collector at `http://localhost:4317` (set `scraper.otelCollectorEndpoint` and `otelTransport: grpc`, or HTTP if you prefer).
+- The scraper config ([`config.yaml`](../config.yaml)) should point to the local OTLP collector at `http://localhost:4317` (set `scraper.otelCollectorEndpoint` and `otelTransport: grpc`, or HTTP if you prefer).
 
 ## Stack Contents
 - **Grafana**: UI to inspect metrics/logs.

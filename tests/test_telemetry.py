@@ -249,24 +249,27 @@ def test_record_self_scrape_dry_run_and_real():
     src = make_source()
     t = telemetry_with_fakes(dry_run=True)
     t.self_enabled = True
-    t.record_self_scrape(src.name, "success", 1.2, 3)
+    t.record_self_scrape(src.name, "success", 1.2, 3, api_type="instant")
 
     t2 = telemetry_with_fakes(dry_run=False)
     t2.self_enabled = True
-    t2.record_self_scrape(src.name, "error", 2.5, 4)
+    t2.record_self_scrape(src.name, "error", 2.5, 4, api_type="range")
     assert t2.meter.counters["scraper_runs_total"].adds[0][0] == 1
     assert t2.meter.histograms["scraper_run_duration_seconds"].records[0][0] == 2.5
+    assert t2.self_gauges["scraper_last_run_duration_seconds"].values[0][0] == 2.5
     assert "scraper.self" in t2.logger_provider.loggers
 
 
 def test_record_self_scrape_disabled_and_dry_run():
     t = telemetry_with_fakes(dry_run=False)
     t.self_enabled = False
-    t.record_self_scrape("svc", "success", 1.0, 1)  # returns early
+    t.record_self_scrape("svc", "success", 1.0, 1, api_type="instant")  # returns early
 
     t2 = telemetry_with_fakes(dry_run=True)
     t2.self_enabled = True
-    t2.record_self_scrape("svc", "success", 1.0, 1)  # dry-run logging path
+    t2.record_self_scrape(
+        "svc", "success", 1.0, 1, api_type="instant"
+    )  # dry-run logging path
     t2._emit_self_log("svc", "success", 1.0, 1)  # direct call to cover dry-run return
 
 
@@ -295,11 +298,13 @@ def test_force_flush_helpers(monkeypatch):
     t = telemetry_with_fakes(dry_run=False)
     called = {}
 
-    async def awaitable():
-        called["task"] = True
+    class AwaitableObj:
+        def __await__(self):
+            called["task"] = True
+            yield None
 
-    t.meter_provider.force_flush_result = awaitable()
-    t.logger_provider.force_flush_result = awaitable()
+    t.meter_provider.force_flush_result = AwaitableObj()
+    t.logger_provider.force_flush_result = AwaitableObj()
 
     monkeypatch.setattr(
         "asyncio.create_task", lambda coro: called.setdefault("created", True)
@@ -370,6 +375,46 @@ def test_emit_attribute_metrics_unmapped_value(caplog):
     records = [{"meta": {"region": "us"}}]
     t._emit_attribute_metrics(src, records)
     assert ("svc", "region_metric") in t.counters
+
+
+def test_record_dedupe_metrics():
+    t = telemetry_with_fakes(dry_run=False)
+    t.self_enabled = True
+    t.record_dedupe("svc", "instant", hits=5, misses=3, total=8)
+    assert t.meter.counters["scraper_dedupe_hits_total"].adds[0][0] == 5
+    assert t.self_gauges["scraper_dedupe_hit_rate"].values[0][0] == 5 / 8
+
+
+def test_record_cleanup_metrics():
+    t = telemetry_with_fakes(dry_run=False)
+    t.self_enabled = True
+    t.record_cleanup("fingerprint_cleanup", "sqlite", duration_seconds=1.5, cleaned=2)
+    assert t.meter.histograms["scraper_cleanup_duration_seconds"].records[0][0] == 1.5
+    assert t.self_gauges["scraper_cleanup_last_items"].values[0][0] == 2
+
+
+def test_record_dedupe_disabled_and_dry_run():
+    t = telemetry_with_fakes(dry_run=False)
+    t.self_enabled = False
+    t.record_dedupe("svc", "instant", hits=1, misses=1, total=2)
+    assert "scraper_dedupe_hits_total" not in t.meter.counters
+
+    t2 = telemetry_with_fakes(dry_run=True)
+    t2.self_enabled = True
+    t2.record_dedupe("svc", "instant", hits=1, misses=1, total=2)
+    assert t2.meter is None
+
+
+def test_record_cleanup_disabled_and_dry_run():
+    t = telemetry_with_fakes(dry_run=False)
+    t.self_enabled = False
+    t.record_cleanup("job", "backend", 1.0, cleaned=None)
+    assert "scraper_cleanup_duration_seconds" not in t.meter.histograms
+
+    t2 = telemetry_with_fakes(dry_run=True)
+    t2.self_enabled = True
+    t2.record_cleanup("job", "backend", 1.0, cleaned=None)
+    assert t2.meter is None
 
 
 def test_resolve_severity_info_branch():

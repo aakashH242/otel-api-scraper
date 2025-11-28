@@ -65,6 +65,7 @@ async def test_scrape_source_success_and_error_paths(monkeypatch):
     pipeline.run.side_effect = [ShapeMismatch("bad"), [{"id": 2}]]
     telemetry = MagicMock()
     telemetry.record_self_scrape = MagicMock()
+    telemetry.record_dedupe = MagicMock()
     telemetry.emit_metrics = MagicMock()
     telemetry.emit_logs = MagicMock()
     telemetry._emit_tasks = set()
@@ -81,6 +82,12 @@ async def test_scrape_source_success_and_error_paths(monkeypatch):
     assert engine._fetch_window.await_count == 2
     engine._emit_telemetry_async.assert_awaited_once()
     telemetry.record_self_scrape.assert_called_once()
+    args, kwargs = telemetry.record_self_scrape.call_args
+    assert (
+        args[0] == src.name
+        and kwargs.get("api_type", src.scrape.type) == src.scrape.type
+    )
+    telemetry.record_dedupe.assert_called_once()
     state_store.set_last_success.assert_awaited()
 
 
@@ -149,9 +156,9 @@ async def test_fetch_window_get_with_raw_params(monkeypatch):
     response.raise_for_status = MagicMock()
     response.json.return_value = {"data": []}
     http.request = AsyncMock(return_value=response)
-    pipeline = AsyncMock()
+    pipeline = MagicMock()
     telemetry = MagicMock()
-    state_store = AsyncMock()
+    state_store = MagicMock()
 
     # stub util helpers
     monkeypatch.setattr(
@@ -190,9 +197,9 @@ async def test_fetch_window_post_with_params(monkeypatch):
     response.raise_for_status = MagicMock()
     response.json.return_value = {"items": [1]}
     http.request = AsyncMock(return_value=response)
-    pipeline = AsyncMock()
+    pipeline = MagicMock()
     telemetry = MagicMock()
-    state_store = AsyncMock()
+    state_store = MagicMock()
     monkeypatch.setattr(
         "otel_api_scraper.scraper_engine.extract_records",
         lambda payload, key: payload["items"],
@@ -259,6 +266,7 @@ async def test_scrape_source_handles_generic_exception(monkeypatch):
     pipeline = AsyncMock()
     telemetry = MagicMock()
     telemetry.record_self_scrape = MagicMock()
+    telemetry.record_dedupe = MagicMock()
     telemetry._emit_tasks = set()
     http = MagicMock()
     engine = ScraperEngine(app_cfg(), http, pipeline, telemetry, state_store)
@@ -271,6 +279,7 @@ async def test_scrape_source_handles_generic_exception(monkeypatch):
     await engine.scrape_source(src)
 
     telemetry.record_self_scrape.assert_called()
+    telemetry.record_dedupe.assert_called()
     engine._emit_telemetry_async.assert_not_awaited()
 
 
@@ -281,6 +290,7 @@ async def test_scrape_source_accepts_non_tuple_results(monkeypatch):
     pipeline = AsyncMock()
     telemetry = MagicMock()
     telemetry.record_self_scrape = MagicMock()
+    telemetry.record_dedupe = MagicMock()
     telemetry._emit_tasks = set()
     http = MagicMock()
     engine = ScraperEngine(app_cfg(), http, pipeline, telemetry, state_store)
@@ -299,6 +309,7 @@ async def test_scrape_source_accepts_non_tuple_results(monkeypatch):
     await engine.scrape_source(src)
 
     engine._emit_telemetry_async.assert_awaited_once()
+    telemetry.record_dedupe.assert_called()
 
 
 @pytest.mark.asyncio

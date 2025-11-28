@@ -4,7 +4,7 @@ This directory contains comprehensive documentation for configuring the OTEL API
 
 ## Documentation Structure
 
-### [Global Configuration](./global/README.md)
+### [Global Configuration](global/README.md)
 Settings under the `scraper` section that control the overall behavior of the scraper:
 - Telemetry & observability settings
 - OTEL collector connection
@@ -18,7 +18,7 @@ Settings under the `scraper` section that control the overall behavior of the sc
 - Default values and their implications
 - Best practices for production deployments
 
-### [Source Configuration](./sources/README.md)
+### [Source Configuration](sources/README.md)
 Settings for individual API sources under the `sources` section:
 - Authentication (Basic, API Key, OAuth, Azure AD)
 - Scrape configuration (range vs instant, time windows)
@@ -43,13 +43,13 @@ Settings for individual API sources under the `sources` section:
    - Set your OTEL collector endpoint
    - Choose transport (gRPC or HTTP)
    - Configure concurrency limits
-   - See [Global Configuration](./global/README.md) for details
+   - See [Global Configuration](global/README.md) for details
 
 3. **Add API sources** (`sources` section):
    - Define each API endpoint you want to scrape
    - Configure authentication
    - Map response fields to metrics/logs
-   - See [Source Configuration](./sources/README.md) for examples
+   - See [Source Configuration](sources/README.md) for examples
 
 4. **Set environment variables** for secrets:
    ```bash
@@ -191,14 +191,14 @@ The scraper validates your configuration on startup using Pydantic models. Commo
 
 ## Additional Resources
 
-- [**config.yaml.template**](../config.yaml.template) - Complete reference with all options
+- [**config.yaml.template**](../../config.yaml.template) - Complete reference with all options
 - [**LOCAL_TESTING.md**](../LOCAL_TESTING.md) - Run with local observability stack
-- [**DEVELOPMENT/**](../DEVELOPMENT/) - Docker Compose setup for development
+- [**LOCAL TESTING/**](../LOCAL%20TESTING) - Docker Compose setup for development
 
 ## Support
 
 For issues or questions:
-- Check the detailed docs: [Global](./global/README.md) | [Sources](./sources/README.md)
-- Review examples in [config.yaml.template](../config.yaml.template)
-- See complete working examples in [Sources README](./sources/README.md#complete-examples)
+- Check the detailed docs: [Global](global/README.md) | [Sources](sources/README.md)
+- Review explanations in [config.yaml.template](../../config.yaml.template)
+- See complete working examples in [Sources README](sources/README.md#complete-examples)
 

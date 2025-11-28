@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, ANY
 
 import pytest
 
@@ -43,9 +43,11 @@ async def test_cleanup_loop_runs_and_handles_errors(monkeypatch, caplog):
 
     monkeypatch.setattr(runner.asyncio, "sleep", fake_sleep)
     store = Store()
-    await runner._cleanup_loop(store, 1)
+    telemetry = MagicMock()
+    await runner._cleanup_loop(store, 1, telemetry, "backend")
     assert calls["cleanup"] == 1
     assert any("Cleanup loop error" in msg for msg in caplog.messages)
+    telemetry.record_cleanup.assert_called()
 
 
 @pytest.mark.asyncio
@@ -63,10 +65,32 @@ async def test_cleanup_loop_logs_success(monkeypatch, caplog):
         return None
 
     monkeypatch.setattr(runner.asyncio, "sleep", fake_sleep)
-    await runner._cleanup_loop(Store(), 1)
+    telemetry = MagicMock()
+    await runner._cleanup_loop(Store(), 1, telemetry, "backend")
 
     assert calls["cleanup"] == 1
+    telemetry.record_cleanup.assert_called()
     assert any("Ran fingerprint cleanup cycle" in msg for msg in caplog.messages)
+
+
+@pytest.mark.asyncio
+async def test_cleanup_loop_records_cleaned_count(monkeypatch):
+    class Store:
+        async def cleanup(self):
+            return 3
+
+    async def fake_sleep(interval):
+        if getattr(fake_sleep, "called", False):
+            raise asyncio.CancelledError()
+        fake_sleep.called = True
+        return None
+
+    telemetry = MagicMock()
+    monkeypatch.setattr(runner.asyncio, "sleep", fake_sleep)
+    await runner._cleanup_loop(Store(), 1, telemetry, "backend")
+    telemetry.record_cleanup.assert_called_with(
+        "fingerprint_cleanup", "backend", ANY, 3
+    )
 
 
 @pytest.mark.asyncio
@@ -76,13 +100,14 @@ async def test_async_main_happy_path(monkeypatch):
     mock_state_store = AsyncMock()
     mock_pipeline = MagicMock()
     mock_telemetry = AsyncMock()
+    mock_telemetry.record_cleanup = MagicMock()
     mock_http = AsyncMock()
     mock_engine = MagicMock()
     mock_scheduler = MagicMock()
     mock_scheduler.run_all_once = AsyncMock()
     mock_scheduler.shutdown = AsyncMock()
 
-    async def fake_cleanup_loop(store, interval):
+    async def fake_cleanup_loop(store, interval, telemetry, backend):
         return None
 
     async def fake_sleep(seconds):
@@ -184,13 +209,14 @@ async def test_async_main_with_admin_api(monkeypatch):
     mock_state_store = AsyncMock()
     mock_pipeline = MagicMock()
     mock_telemetry = AsyncMock()
+    mock_telemetry.record_cleanup = MagicMock()
     mock_http = AsyncMock()
     mock_engine = MagicMock()
     mock_scheduler = MagicMock()
     mock_scheduler.run_all_once = AsyncMock()
     mock_scheduler.shutdown = AsyncMock()
 
-    async def fake_cleanup_loop(store, interval):
+    async def fake_cleanup_loop(store, interval, telemetry, backend):
         return None
 
     async def fake_sleep(seconds):

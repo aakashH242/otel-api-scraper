@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from typing import Any, Dict, List, Tuple
-import asyncio
 
 from opentelemetry import metrics
 from opentelemetry._logs import set_logger_provider
@@ -108,6 +108,7 @@ class Telemetry:
         self.gauges: Dict[Tuple[str, str], GaugeAggregator] = {}
         self.attribute_metrics: Dict[str, Any] = {}
         self._emit_tasks: set[asyncio.Task] = set()
+        self.self_gauges: Dict[str, GaugeAggregator] = {}
         if not self.dry_run:
             self._setup_otel()
         else:
@@ -310,35 +311,93 @@ class Telemetry:
             logger.warning("Log emission failed for source %s: %s", source.name, exc)
 
     def record_self_scrape(
-        self, source_name: str, status: str, duration_seconds: float, record_count: int
+        self,
+        source_name: str,
+        status: str,
+        duration_seconds: float,
+        record_count: int,
+        api_type: str | None = None,
     ) -> None:
         """Emit self-telemetry metrics/logs for a scrape execution."""
         if not self.self_enabled:
             return
+        api_attr = api_type or "unknown"
         logger.debug(
-            "Recording self telemetry for source=%s status=%s duration=%.3fs records=%s",
+            "Recording self telemetry for source=%s status=%s duration=%.3fs records=%s api_type=%s",
             source_name,
             status,
             duration_seconds,
             record_count,
+            api_attr,
         )
         if self.dry_run:
             logger.info(
-                "[dry-run] self-telemetry source=%s status=%s duration=%.3fs records=%s",
+                "[dry-run] self-telemetry source=%s status=%s duration=%.3fs records=%s api_type=%s",
                 source_name,
                 status,
                 duration_seconds,
                 record_count,
+                api_attr,
             )
             return
         run_counter = self._self_counter("scraper_runs_total", "1")
         duration_hist = self._self_histogram("scraper_run_duration_seconds", "s")
         records_counter = self._self_counter("scraper_records_emitted_total", "1")
-        attrs = {"source": source_name, "status": status}
+        attrs = {"source": source_name, "status": status, "api_type": api_attr}
         run_counter.add(1, attributes=attrs)
         duration_hist.record(float(duration_seconds), attributes=attrs)
         records_counter.add(float(record_count), attributes=attrs)
+        self._self_gauge("scraper_last_run_duration_seconds", "s").set_values(
+            [(float(duration_seconds), attrs)]
+        )
+        self._self_gauge("scraper_last_records_emitted", "1").set_values(
+            [(float(record_count), attrs)]
+        )
         self._emit_self_log(source_name, status, duration_seconds, record_count)
+
+    def record_dedupe(
+        self, source_name: str, api_type: str, hits: int, misses: int, total: int
+    ) -> None:
+        """Emit deduplication hit/miss counters and hit-rate gauge."""
+        if not self.self_enabled or self.dry_run:
+            return
+        attrs = {"source": source_name, "api_type": api_type or "unknown"}
+        self._self_counter("scraper_dedupe_hits_total", "1").add(
+            float(hits), attributes=attrs
+        )
+        self._self_counter("scraper_dedupe_misses_total", "1").add(
+            float(misses), attributes=attrs
+        )
+        self._self_counter("scraper_dedupe_total", "1").add(
+            float(total), attributes=attrs
+        )
+        hit_rate = float(hits) / float(total) if total else 0.0
+        self._self_gauge("scraper_dedupe_hit_rate", "1").set_values([(hit_rate, attrs)])
+
+    def record_cleanup(
+        self,
+        job: str,
+        backend: str,
+        duration_seconds: float,
+        cleaned: int | None = None,
+    ) -> None:
+        """Emit cleanup job metrics (duration, cleaned count if available)."""
+        if not self.self_enabled or self.dry_run:
+            return
+        attrs = {"job": job, "backend": backend}
+        self._self_histogram("scraper_cleanup_duration_seconds", "s").record(
+            float(duration_seconds), attributes=attrs
+        )
+        self._self_gauge("scraper_cleanup_last_duration_seconds", "s").set_values(
+            [(float(duration_seconds), attrs)]
+        )
+        if cleaned is not None:
+            self._self_counter("scraper_cleanup_items_total", "1").add(
+                float(cleaned), attributes=attrs
+            )
+            self._self_gauge("scraper_cleanup_last_items", "1").set_values(
+                [(float(cleaned), attrs)]
+            )
 
     def _emit_self_log(
         self, source_name: str, status: str, duration_seconds: float, record_count: int
@@ -380,6 +439,12 @@ class Telemetry:
                 name=name, unit=unit
             )
         return self.self_histograms[name]
+
+    def _self_gauge(self, name: str, unit: str) -> GaugeAggregator:
+        """Get or create a self-telemetry gauge aggregator."""
+        if name not in self.self_gauges:
+            self.self_gauges[name] = GaugeAggregator(self.meter, name=name, unit=unit)
+        return self.self_gauges[name]
 
     def _record_attributes(
         self,

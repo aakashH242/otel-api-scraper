@@ -58,71 +58,93 @@ class ScraperEngine:
 
     async def scrape_source(self, source: cfg.SourceConfig) -> None:
         """Scrape a source, process records, and emit telemetry."""
-        now = utc_now()
-        last_success = await self.state_store.get_last_success(source.name)
-        if last_success is None and not source.scrape.runFirstScrape:
-            await self.state_store.set_last_success(source.name, now)
-            logger.info(
-                "Skipping initial scrape for %s (runFirstScrape=false); recorded now as last_success",
-                source.name,
-            )
-            return
-        windows = await self._compute_windows(source, now, last_success)
-        logger.debug("Computed %s windows for source %s", len(windows), source.name)
-        auth_strategy = build_auth_strategy(source.auth)
-        sem = self._source_semaphore(source)
-
-        async def run_window(window: Tuple[datetime, datetime] | None):
-            """Execute scrape for a single window."""
-            async with sem:
-                try:
-                    logger.debug(
-                        "Fetching window %s for source %s", window, source.name
-                    )
-                    records = await self._fetch_window(source, window, auth_strategy)
-                    logger.debug(
-                        "Fetched %s raw records for source %s window %s",
-                        len(records),
-                        source.name,
-                        window,
-                    )
-                    processed = await self.pipeline.run(records, source)
-                    return processed, False
-                except ShapeMismatch as exc:
-                    logger.error("Shape mismatch for source %s: %s", source.name, exc)
-                    return [], True
-                except Exception as exc:
-                    logger.exception("Error scraping source %s: %s", source.name, exc)
-                    return [], True
-
-        results = await asyncio.gather(*[run_window(w) for w in windows])
+        start_time = utc_now()
+        status = "success"
         all_records: List[dict[str, Any]] = []
-        had_errors = False
-        for chunk in results:
-            if isinstance(chunk, tuple):
-                records, errored = chunk
-                had_errors = had_errors or errored
-                all_records.extend(records)
+        api_type = source.scrape.type
+        try:
+            last_success = await self.state_store.get_last_success(source.name)
+            if last_success is None and not source.scrape.runFirstScrape:
+                await self.state_store.set_last_success(source.name, start_time)
+                logger.info(
+                    "Skipping initial scrape for %s (runFirstScrape=false); recorded now as last_success",
+                    source.name,
+                )
+                return
+            windows = await self._compute_windows(source, start_time, last_success)
+            logger.debug("Computed %s windows for source %s", len(windows), source.name)
+            auth_strategy = build_auth_strategy(source.auth)
+            sem = self._source_semaphore(source)
+
+            async def run_window(window: Tuple[datetime, datetime] | None):
+                """Execute scrape for a single window."""
+                async with sem:
+                    try:
+                        logger.debug(
+                            "Fetching window %s for source %s", window, source.name
+                        )
+                        records = await self._fetch_window(
+                            source, window, auth_strategy
+                        )
+                        logger.debug(
+                            "Fetched %s raw records for source %s window %s",
+                            len(records),
+                            source.name,
+                            window,
+                        )
+                        processed = await self.pipeline.run(records, source)
+                        return processed, False
+                    except ShapeMismatch as exc:
+                        logger.error(
+                            "Shape mismatch for source %s: %s", source.name, exc
+                        )
+                        return [], True
+                    except Exception as exc:
+                        logger.exception(
+                            "Error scraping source %s: %s", source.name, exc
+                        )
+                        return [], True
+
+            results = await asyncio.gather(*[run_window(w) for w in windows])
+            had_errors = False
+            for chunk in results:
+                if isinstance(chunk, tuple):
+                    records, errored = chunk
+                    had_errors = had_errors or errored
+                    all_records.extend(records)
+                else:
+                    all_records.extend(chunk)
+            status = "error" if had_errors else "success"
+            if all_records:
+                await self._emit_telemetry_async(source, all_records)
             else:
-                all_records.extend(chunk)
-        status = "error" if had_errors else "success"
-        if all_records:
-            await self._emit_telemetry_async(source, all_records)
-        else:
-            logger.debug(
-                "No records to emit for source %s after filters/dedup", source.name
+                logger.debug(
+                    "No records to emit for source %s after filters/dedup", source.name
+                )
+            await self.state_store.set_last_success(source.name, start_time)
+        finally:
+            duration = (utc_now() - start_time).total_seconds()
+            stats = getattr(self.pipeline, "last_stats", None) or {
+                "hits": 0,
+                "misses": 0,
+                "total": 0,
+            }
+            self.telemetry.record_self_scrape(
+                source.name, status, duration, len(all_records), api_type=api_type
             )
-        await self.state_store.set_last_success(source.name, now)
-        duration = (utc_now() - now).total_seconds()
-        self.telemetry.record_self_scrape(
-            source.name, status, duration, len(all_records)
-        )
-        logger.info(
-            "Scrape complete for %s: records=%s status=%s",
-            source.name,
-            len(all_records),
-            status,
-        )
+            self.telemetry.record_dedupe(
+                source.name,
+                api_type,
+                hits=stats.get("hits", 0),
+                misses=stats.get("misses", 0),
+                total=stats.get("total", 0),
+            )
+            logger.info(
+                "Scrape complete for %s: records=%s status=%s",
+                source.name,
+                len(all_records),
+                status,
+            )
 
     async def _emit_telemetry_async(
         self, source: cfg.SourceConfig, records: List[dict[str, Any]]

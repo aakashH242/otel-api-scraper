@@ -4,7 +4,7 @@ This directory contains comprehensive examples for all three metric types suppor
 
 ## Available Examples
 
-### 1. [Counters](./counters.yaml)
+### 1. [Counters](counters.yaml)
 **What they are:** Monotonically increasing values (only go up, never down)
 
 **Value Configuration Options:**
@@ -21,7 +21,7 @@ This directory contains comprehensive examples for all three metric types suppor
 
 ---
 
-### 2. [Histograms](./histograms.yaml)
+### 2. [Histograms](histograms.yaml)
 **What they are:** Distribution of values showing percentiles and buckets
 
 **Value Configuration Options:**
@@ -38,7 +38,7 @@ This directory contains comprehensive examples for all three metric types suppor
 
 ---
 
-### 3. [Gauges](./gauges.yaml)
+### 3. [Gauges](gauges.yaml)
 **What they are:** Point-in-time values that can go up or down
 
 **Value Configuration Options:**
@@ -402,9 +402,9 @@ histogramReadings:
 
 | File | Covers | Key Concepts |
 |------|--------|--------------|
-| [counters.yaml](./counters.yaml) | 3 value types | Default increment, fixed value, from field |
-| [histograms.yaml](./histograms.yaml) | 2 value types + buckets | Distribution analysis, percentiles |
-| [gauges.yaml](./gauges.yaml) | 2 value types | Current state, point-in-time values |
+| [counters.yaml](counters.yaml) | 3 value types | Default increment, fixed value, from field |
+| [histograms.yaml](histograms.yaml) | 2 value types + buckets | Distribution analysis, percentiles |
+| [gauges.yaml](gauges.yaml) | 2 value types | Current state, point-in-time values |
 
 All examples show:
 - ✅ Complete, working configurations

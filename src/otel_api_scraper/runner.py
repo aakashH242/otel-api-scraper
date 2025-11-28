@@ -20,6 +20,7 @@ from .scheduler import ScraperScheduler
 from .scraper_engine import ScraperEngine
 from .state import build_state_store
 from .telemetry import Telemetry
+from .utils import utc_now
 
 
 def setup_logging(level: str) -> None:
@@ -32,16 +33,32 @@ def setup_logging(level: str) -> None:
     logging.getLogger().setLevel(numeric)
 
 
-async def _cleanup_loop(store, interval: int) -> None:
+async def _cleanup_loop(
+    store, interval: int, telemetry: Telemetry | None, backend: str
+) -> None:
     """Periodic cleanup loop for fingerprint store."""
     while True:
         try:
+            start = utc_now()
             await asyncio.sleep(interval)
-            await store.cleanup()
+            cleaned = None
+            result = await store.cleanup()
+            if isinstance(result, int):
+                cleaned = result
+            duration = (utc_now() - start).total_seconds()
+            if telemetry:
+                telemetry.record_cleanup(
+                    "fingerprint_cleanup", backend, duration, cleaned
+                )
             logging.getLogger(__name__).debug("Ran fingerprint cleanup cycle")
         except asyncio.CancelledError:
             return
         except Exception as exc:
+            duration = (
+                (utc_now() - start).total_seconds() if "start" in locals() else 0.0
+            )
+            if telemetry:
+                telemetry.record_cleanup("fingerprint_cleanup", backend, duration, None)
             logging.getLogger(__name__).warning("Cleanup loop error: %s", exc)
 
 
@@ -73,15 +90,25 @@ async def async_main(config_path: str) -> None:
     engine_scheduler = ScraperScheduler(app_config, engine)
 
     active_sources = {src.name for src in app_config.sources}
+    start_cleanup = utc_now()
     await fingerprint_store.cleanup_orphans(active_sources)
+    orphan_duration = (utc_now() - start_cleanup).total_seconds()
     logging.getLogger(__name__).debug(
         "Cleaned orphan fingerprints for sources: %s", active_sources
+    )
+    telemetry.record_cleanup(
+        "orphan_cleanup",
+        app_config.scraper.fingerprintStore.backend,
+        orphan_duration,
+        cleaned=None,
     )
 
     cleanup_task = asyncio.create_task(
         _cleanup_loop(
             fingerprint_store,
             app_config.scraper.fingerprintStore.cleanupIntervalSeconds,
+            telemetry,
+            app_config.scraper.fingerprintStore.backend,
         )
     )
 
