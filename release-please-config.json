@@ -29,7 +29,9 @@
       "initial-version": "0.0.0",
       "component": "otel-api-scrapper",
       "include-component-in-tag": false,
-      "extra-files": []
+      "extra-files": [
+        "pyproject.toml"
+      ]
     }
   }
 }
