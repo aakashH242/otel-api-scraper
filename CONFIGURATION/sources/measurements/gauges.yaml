@@ -1,0 +1,416 @@
+# Gauge Metric Configuration Examples
+#
+# Gauges represent point-in-time values that can go up or down.
+# They show the current state/level of something at the time of measurement.
+# Perfect for current queue sizes, temperatures, active connections, resource levels, etc.
+#
+# There are TWO ways to configure gauge values:
+# 1. From field in data (most common) - use dataKey
+# 2. Fixed value (useful for constants) - use fixedValue
+#
+# All labels come from the 'attributes' section (no separate labels field!)
+
+sources:
+  - name: "gauge-examples"
+
+    baseUrl: "https://api.example.com"
+    endpoint: "/v1/system/status"
+    frequency: "30s"
+
+    scrape:
+      type: instant
+      runFirstScrape: true
+
+    # Sample API response for reference:
+    # [
+    #   {
+    #     "service_name": "payment-processor",
+    #     "instance_id": "i-123abc",
+    #     "status": "healthy",
+    #     "active_connections": 45,
+    #     "queue_depth": 12,
+    #     "cpu_percent": 23.5,
+    #     "memory_mb": 1024,
+    #     "disk_free_gb": 15.7,
+    #     "response_time_ms": 85,
+    #     "uptime_seconds": 86400,
+    #     "request_rate_per_sec": 150.5,
+    #     "error_rate_percent": 0.2,
+    #     "last_restart_timestamp": 1732790400,
+    #     "region": "us-east-1"
+    #   },
+    #   {
+    #     "service_name": "user-service",
+    #     "instance_id": "i-456def",
+    #     "status": "degraded",
+    #     "active_connections": 89,
+    #     "queue_depth": 156,
+    #     "cpu_percent": 78.9,
+    #     "memory_mb": 2048,
+    #     "disk_free_gb": 3.2,
+    #     "response_time_ms": 450,
+    #     "uptime_seconds": 43200,
+    #     "request_rate_per_sec": 75.8,
+    #     "error_rate_percent": 2.5,
+    #     "last_restart_timestamp": 1732833600,
+    #     "region": "eu-west-1"
+    #   }
+    # ]
+
+    # ============================================================
+    # GAUGE EXAMPLES - Both Value Types
+    # ============================================================
+
+    gaugeReadings:
+      # ------------------------------------------------------
+      # 1. FROM FIELD IN DATA (most common pattern)
+      # ------------------------------------------------------
+      # Use dataKey to extract current values from record fields
+      # Each record sets the gauge to its current value
+
+      - name: "service_active_connections"
+        dataKey: "active_connections"
+        unit: "1"
+        # Shows current number of active connections
+        # Record 1: sets to 45, Record 2: sets to 89
+        # Labels from attributes: service_name, region, status
+
+      - name: "service_queue_depth"
+        dataKey: "queue_depth"
+        unit: "1"
+        # Shows current queue size/backlog
+        # Record 1: sets to 12, Record 2: sets to 156
+
+      - name: "service_cpu_utilization"
+        dataKey: "cpu_percent"
+        unit: "percent"
+        # Shows current CPU usage percentage
+        # Record 1: sets to 23.5%, Record 2: sets to 78.9%
+
+      - name: "service_memory_usage"
+        dataKey: "memory_mb"
+        unit: "megabytes"
+        # Shows current memory consumption
+        # Record 1: sets to 1024MB, Record 2: sets to 2048MB
+
+      - name: "service_disk_free"
+        dataKey: "disk_free_gb"
+        unit: "gigabytes"
+        # Shows current available disk space
+        # Record 1: sets to 15.7GB, Record 2: sets to 3.2GB
+
+      - name: "service_response_time"
+        dataKey: "response_time_ms"
+        unit: "milliseconds"
+        # Shows current/latest response time
+        # Record 1: sets to 85ms, Record 2: sets to 450ms
+
+      - name: "service_uptime"
+        dataKey: "uptime_seconds"
+        unit: "seconds"
+        # Shows how long service has been running
+        # Record 1: sets to 86400s (1 day), Record 2: sets to 43200s (12 hours)
+
+      - name: "service_request_rate"
+        dataKey: "request_rate_per_sec"
+        unit: "{requests}/s"
+        # Shows current requests per second
+        # Record 1: sets to 150.5, Record 2: sets to 75.8
+
+      - name: "service_error_rate"
+        dataKey: "error_rate_percent"
+        unit: "percent"
+        # Shows current error rate percentage
+        # Record 1: sets to 0.2%, Record 2: sets to 2.5%
+
+      # ------------------------------------------------------
+      # 2. TIMESTAMP/TEMPORAL VALUES
+      # ------------------------------------------------------
+      # Extract timestamp values (often converted to "seconds ago")
+
+      - name: "service_last_restart"
+        dataKey: "last_restart_timestamp"
+        unit: "seconds"
+        # Unix timestamp of last restart
+        # Can be used to calculate "time since restart" in queries
+
+      - name: "service_health_check_age"
+        dataKey: "last_health_check_timestamp"
+        unit: "seconds"
+        # When was the last health check performed
+
+      # ------------------------------------------------------
+      # 3. NESTED/COMPUTED FIELD EXTRACTION
+      # ------------------------------------------------------
+      # Extract values from nested objects
+
+      - name: "service_cache_hit_ratio"
+        dataKey: "cache.hit_ratio_percent"
+        unit: "percent"
+        # If API response has nested cache data
+
+      - name: "service_database_pool_size"
+        dataKey: "database.connection_pool.active"
+        unit: "1"
+        # Extract from deeply nested objects
+
+      - name: "service_thread_count"
+        dataKey: "runtime.active_threads"
+        unit: "1"
+        # Runtime information from nested data
+
+      # ------------------------------------------------------
+      # 4. FIXED VALUE (useful for constants/flags)
+      # ------------------------------------------------------
+      # Use fixedValue when you want every record to set
+      # the gauge to the same constant value
+
+      - name: "service_availability_target"
+        fixedValue: 99.9
+        unit: "percent"
+        # Set SLA target as a constant gauge
+        # All records set this gauge to 99.9%
+        # Useful for comparison with actual availability
+
+      - name: "service_expected_instances"
+        fixedValue: 3
+        unit: "1"
+        # Expected number of service instances
+        # Can be compared with actual instance count
+
+      - name: "service_max_connections"
+        fixedValue: 1000
+        unit: "1"
+        # Configuration limit/threshold
+        # Useful for alerting when approaching limits
+
+      - name: "service_health_weight"
+        fixedValue: 10
+        unit: "1"
+        # Business weight/priority of this service
+        # Different services could have different weights
+
+      # ------------------------------------------------------
+      # 5. BOOLEAN/STATUS VALUES AS NUMBERS
+      # ------------------------------------------------------
+      # Convert boolean status to numeric gauges
+
+      - name: "service_is_healthy"
+        dataKey: "is_healthy_bool"
+        unit: "1"
+        # If API returns boolean: true=1, false=0
+        # More commonly handled via attributes with asMetric
+
+      - name: "service_maintenance_mode"
+        fixedValue: 0
+        unit: "1"
+        # 1 = in maintenance, 0 = normal operation
+        # Could be dynamically set based on deployment status
+
+      # ------------------------------------------------------
+      # 6. BUSINESS/DOMAIN-SPECIFIC METRICS
+      # ------------------------------------------------------
+
+      - name: "service_active_users"
+        dataKey: "current_active_users"
+        unit: "1"
+        # Current number of logged-in users
+
+      - name: "service_pending_orders"
+        dataKey: "orders_in_queue"
+        unit: "1"
+        # Current backlog of orders to process
+
+      - name: "service_cache_size"
+        dataKey: "cache_size_mb"
+        unit: "megabytes"
+        # Current cache consumption
+
+      - name: "service_license_usage"
+        dataKey: "licenses_in_use"
+        unit: "1"
+        # How many licenses are currently being used
+
+      - name: "service_api_quota_remaining"
+        dataKey: "api_calls_remaining_today"
+        unit: "1"
+        # Remaining API calls in quota
+
+      # ------------------------------------------------------
+      # 7. COMPUTED/DERIVED VALUES
+      # ------------------------------------------------------
+      # Values that might be calculated from raw data
+
+      - name: "service_capacity_utilization"
+        dataKey: "capacity_used_percent"
+        unit: "percent"
+        # Overall capacity utilization
+
+      - name: "service_performance_score"
+        dataKey: "performance_index"
+        unit: "1"
+        # Composite performance score (0-100)
+
+      - name: "service_sla_compliance"
+        dataKey: "current_sla_percent"
+        unit: "percent"
+        # Current SLA compliance level
+
+    # ============================================================
+    # ATTRIBUTES - These become labels on ALL gauge metrics!
+    # ============================================================
+
+    attributes:
+      - name: "service_name"
+        dataKey: "service_name"
+        # Labels: service_name=payment-processor, service_name=user-service
+
+      - name: "instance_id"
+        dataKey: "instance_id"
+        # Labels: instance_id=i-123abc, instance_id=i-456def
+        # Caution: High cardinality if many instances
+
+      - name: "status"
+        dataKey: "status"
+        # Labels: status=healthy, status=degraded, status=down
+        # Convert to numeric metric for easier alerting
+        asMetric:
+          metricName: "service_health_status_code"
+          valueMapping:
+            "healthy": 1
+            "degraded": 0.5
+            "down": 0
+            "unknown": -1
+          unit: "1"
+
+      - name: "region"
+        dataKey: "region"
+        # Labels: region=us-east-1, region=eu-west-1
+
+      - name: "environment"
+        dataKey: "environment"
+        # Labels: environment=production, environment=staging
+
+      - name: "service_version"
+        dataKey: "version"
+        # Labels: service_version=v1.2.3, service_version=v1.3.0
+
+# ============================================================
+# RESULTING PROMETHEUS METRICS
+# ============================================================
+
+# Gauge metrics show current values:
+
+# service_active_connections{service_name="payment-processor", status="healthy", region="us-east-1"} = 45
+# service_active_connections{service_name="user-service", status="degraded", region="eu-west-1"} = 89
+
+# service_cpu_utilization{service_name="payment-processor", region="us-east-1"} = 23.5
+# service_cpu_utilization{service_name="user-service", region="eu-west-1"} = 78.9
+
+# service_availability_target{service_name="payment-processor"} = 99.9
+# service_availability_target{service_name="user-service"} = 99.9
+
+# service_health_status_code{service_name="payment-processor", status="healthy"} = 1
+# service_health_status_code{service_name="user-service", status="degraded"} = 0.5
+
+# ============================================================
+# WHEN TO USE GAUGES
+# ============================================================
+
+# ✅ USE GAUGES FOR:
+# - Current resource levels (CPU, memory, disk, connections)
+# - Queue depths and backlog sizes
+# - Active counts (users, sessions, connections)
+# - Current response times/latencies
+# - Temperature, pressure, voltage readings
+# - Cache sizes and hit ratios
+# - Business metrics (current inventory, active orders)
+# - Configuration values and limits
+# - Status indicators as numbers
+# - Uptime and age values
+
+# ❌ DON'T USE GAUGES FOR:
+# - Cumulative totals (use counters instead)
+# - Event counts that only increase (use counters)
+# - Values that need distribution analysis (use histograms)
+# - Boolean flags (use attributes with asMetric instead)
+
+# ============================================================
+# GAUGE vs COUNTER vs HISTOGRAM
+# ============================================================
+
+# GAUGE:
+# - Current value at point in time
+# - Can go up and down
+# - Example: current_active_users = 150
+
+# COUNTER:
+# - Cumulative total, only increases
+# - Example: total_users_logged_in = 50,000
+
+# HISTOGRAM:
+# - Distribution of values over time
+# - Example: login_duration_seconds (with percentiles)
+
+# ============================================================
+# IMPORTANT NOTES
+# ============================================================
+
+# 1. GAUGE VALUES ARE CURRENT STATE:
+#    - Last scraped value overwrites previous value
+#    - Not cumulative like counters
+#    - Shows "what is the value right now"
+
+# 2. PRIORITY: fixedValue > dataKey
+#    - If fixedValue is set, it's used (ignores dataKey)
+#    - If no fixedValue but dataKey is set, uses field value
+#    - If dataKey field is missing/null: gauge not updated (keeps last value)
+
+# 3. ERROR HANDLING:
+#    - If dataKey field is non-numeric: gauge not updated
+#    - fixedValue must be numeric (validated at startup)
+#    - Missing values don't create errors, just skip updates
+
+# 4. MULTIPLE RECORDS:
+#    - If multiple records have same labels, last record wins
+#    - Each unique combination of labels gets its own gauge
+#    - Use high cardinality labels carefully (instance_id, user_id, etc.)
+
+# 5. ALL GAUGES GET ALL ATTRIBUTES AS LABELS:
+#    - Every gauge gets every attribute as a label
+#    - Be mindful of label cardinality explosion
+#    - Use attributes strategically for filtering/grouping
+
+# 6. UNITS MATTER:
+#    - Use appropriate units: "bytes", "seconds", "percent", "1"
+#    - Units appear in OTEL metadata and Prometheus
+#    - Consistent units across related metrics help with queries
+
+# ============================================================
+# COMMON GAUGE PATTERNS
+# ============================================================
+
+# RESOURCE UTILIZATION:
+# - CPU/Memory/Disk usage percentages
+# - Connection pool utilization
+# - Cache hit ratios
+
+# QUEUE/BACKLOG MONITORING:
+# - Queue depths, pending items
+# - Processing backlogs
+# - Buffer sizes
+
+# BUSINESS METRICS:
+# - Current inventory levels
+# - Active user sessions
+# - Pending orders/transactions
+
+# HEALTH/STATUS INDICATORS:
+# - Response times (current/recent)
+# - Error rates (current window)
+# - Uptime/availability scores
+
+# CONFIGURATION/LIMITS:
+# - Max connection limits
+# - Rate limits and quotas
+# - SLA targets and thresholds

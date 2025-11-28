@@ -1,0 +1,339 @@
+# Example: Range-Type Scrape Configuration
+#
+# Range scrapes collect data over a time window (e.g., "get all events from 1 hour ago to now").
+# This example demonstrates integration performance metrics from a Workday-like API.
+#
+# Key Features:
+# - Time-based data collection with start/end timestamps
+# - Historical backfill with firstScrapeStart
+# - Parallel window processing for performance
+# - All metric labels come from attributes
+# - Delta detection to avoid duplicates
+# - Filtering and limits
+# - Log severity mapping
+
+sources:
+  - name: "integration-performance"
+
+    # API endpoint configuration
+    baseUrl: "https://api.example.com"
+    endpoint: "/v1/integrations/performance"
+
+    # Scrape every 15 minutes
+    frequency: "15min"
+
+    # Authentication (if required)
+    auth:
+      type: basic
+      username: API_USERNAME
+      password: API_PASSWORD
+
+    # Range scrape configuration
+    scrape:
+      # TYPE: range - scrapes data over a time window
+      type: range
+
+      # HTTP method (GET or POST)
+      httpMethod: GET
+
+      # Run immediately when the scraper starts
+      runFirstScrape: true
+
+      # Time format for this source (ISO 8601)
+      timeFormat: "%Y-%m-%dT%H:%M:%S%z"
+
+      # Range parameters - how to specify the time window
+      rangeKeys:
+        # Query parameter names for start and end times
+        startKey: "from_time"
+        endKey: "to_time"
+
+        # For first scrape, start from this historical point
+        # Subsequent scrapes will use (last_scrape_end, now)
+        firstScrapeStart: "2025-11-01T00:00:00+0000"
+
+      # URL encode the time values (if API requires it)
+      urlEncodeTimeKeys: false
+
+      # Concurrent request limit for this source
+      maxConcurrency: 8
+
+      # Split large time ranges into smaller chunks for parallel processing
+      # Example: If scraping 24 hours, split into 2-hour chunks = 12 parallel requests
+      parallelWindow:
+        unit: hours
+        value: 2
+
+      # Additional headers
+      extraHeaders:
+        Accept: "application/json"
+        Content-Type: "application/json"
+
+      # Additional query parameters (beyond start/end times)
+      extraArgs:
+        format: json
+        include_metadata: true
+
+    # Extract data from nested response
+    # API returns: {"status": "ok", "data": {"records": [...]}}
+    dataKey: "data.records"
+
+    # Filter records before processing
+    filters:
+      # Drop test/staging data
+      drop:
+        - any:
+            - field: "environment"
+              matchType: "equals"
+              value: "test"
+            - field: "status"
+              matchType: "equals"
+              value: "deleted"
+
+      # Only keep completed, failed, or running integrations
+      keep:
+        - all:
+            - field: "status"
+              matchType: "in"
+              value: ["completed", "failed", "running"]
+
+      # Limit records per scrape to prevent memory issues
+      limits:
+        maxRecordsPerScrape: 10000
+
+    # Delta detection - avoid re-emitting the same records
+    deltaDetection:
+      enabled: true
+      fingerprintMode: keys
+      # Fingerprint based on these unique fields
+      fingerprintKeys:
+        - integration_id
+        - run_id
+        - started_at
+      # Keep fingerprints for 6 hours
+      ttlSeconds: 21600
+      maxEntries: 50000
+
+    # ============================================================
+    # METRICS CONFIGURATION
+    # ============================================================
+    # IMPORTANT: Counters and histograms do NOT have a separate 'labels' field.
+    # All labels come from the 'attributes' section below!
+
+    # Gauge metrics - point-in-time values
+    gaugeReadings:
+      # Total duration of integration run
+      - name: "integration_duration_ms"
+        dataKey: "duration_ms"
+        unit: "milliseconds"
+
+      # Time spent in queue
+      - name: "integration_queue_time_ms"
+        dataKey: "queue_duration_ms"
+        unit: "milliseconds"
+
+      # Processing time (excluding queue)
+      - name: "integration_processing_time_ms"
+        dataKey: "processing_duration_ms"
+        unit: "milliseconds"
+
+      # Number of records processed
+      - name: "integration_records_processed"
+        dataKey: "records_processed"
+        unit: "1"
+
+      # Number of errors (if any)
+      - name: "integration_error_count"
+        dataKey: "error_count"
+        unit: "1"
+
+    # Counter metrics - monotonically increasing counts
+    counterReadings:
+      # Count total integration runs
+      # Each record adds 1 to the counter
+      # Labels: integration_name, status, environment (from attributes)
+      - name: "integration_runs_total"
+        unit: "1"
+
+      # Count total records processed across all runs
+      # Each record adds its 'records_processed' value to the counter
+      # Labels: integration_name, status (from attributes)
+      - name: "integration_records_total"
+        valueKey: "records_processed"
+        unit: "1"
+
+      # Count total errors across all runs
+      # Labels: integration_name, error_type (from attributes)
+      - name: "integration_errors_total"
+        valueKey: "error_count"
+        unit: "1"
+
+      # Track data volume processed (in bytes)
+      # Labels: integration_name, direction (from attributes)
+      - name: "integration_data_bytes_total"
+        valueKey: "data_size_bytes"
+        unit: "bytes"
+
+    # Histogram metrics - distributions of values
+    histogramReadings:
+      # Distribution of integration run durations
+      # Labels: integration_name, status (from attributes)
+      - name: "integration_duration_distribution"
+        dataKey: "duration_ms"
+        unit: "milliseconds"
+        # Buckets from 1 second to 1 hour
+        buckets: [1000, 5000, 10000, 30000, 60000, 120000, 300000, 600000, 1800000, 3600000]
+
+      # Distribution of queue wait times
+      # Labels: integration_name (from attributes)
+      - name: "integration_queue_time_distribution"
+        dataKey: "queue_duration_ms"
+        unit: "milliseconds"
+        buckets: [100, 500, 1000, 5000, 10000, 30000, 60000]
+
+      # Distribution of records processed per run
+      # Labels: integration_name, status (from attributes)
+      - name: "integration_records_per_run_distribution"
+        dataKey: "records_processed"
+        unit: "1"
+        buckets: [1, 10, 50, 100, 500, 1000, 5000, 10000, 50000]
+
+    # ============================================================
+    # ATTRIBUTES - These become labels on ALL metrics!
+    # ============================================================
+    attributes:
+      # Integration identifier
+      - name: "integration_id"
+        dataKey: "integration_id"
+
+      # Human-readable integration name (will be a label on all metrics)
+      - name: "integration_name"
+        dataKey: "integration_system"
+
+      # Integration status (completed, failed, running)
+      # This becomes a label on counters and histograms automatically
+      - name: "status"
+        dataKey: "status"
+        # Also emit status as a separate metric (0 or 1)
+        asMetric:
+          metricName: "integration_status_code"
+          valueMapping:
+            "completed": 1
+            "failed": 0
+            "running": 0.5
+            "cancelled": 0
+          unit: "1"
+
+      # Environment (prod, staging, dev)
+      - name: "environment"
+        dataKey: "environment"
+
+      # Integration direction (inbound, outbound)
+      - name: "direction"
+        dataKey: "direction"
+
+      # Error type (if any)
+      - name: "error_type"
+        dataKey: "error_type"
+
+      # Timestamps
+      - name: "started_at"
+        dataKey: "started_at"
+
+      - name: "completed_at"
+        dataKey: "completed_at"
+
+      # User/system who triggered the integration
+      - name: "triggered_by"
+        dataKey: "triggered_by"
+
+    # ============================================================
+    # LOG CONFIGURATION
+    # ============================================================
+
+    # Enable log generation for each record
+    emitLogs: true
+
+    # Map status field to log severity levels
+    logStatusField:
+      name: "status"
+      info:
+        value: "completed"
+        matchType: "equals"
+      warning:
+        value: "running"
+        matchType: "equals"
+      error:
+        value: ["failed", "cancelled", "error"]
+        matchType: "in"
+
+# ============================================================
+# EXAMPLE API RESPONSE
+# ============================================================
+# {
+#   "status": "ok",
+#   "data": {
+#     "records": [
+#       {
+#         "integration_id": "int-123",
+#         "run_id": "run-456",
+#         "integration_system": "Salesforce-to-Workday",
+#         "status": "completed",
+#         "environment": "production",
+#         "direction": "inbound",
+#         "started_at": "2025-11-28T10:00:00+0000",
+#         "completed_at": "2025-11-28T10:05:23+0000",
+#         "duration_ms": 323000,
+#         "queue_duration_ms": 1200,
+#         "processing_duration_ms": 321800,
+#         "records_processed": 1523,
+#         "error_count": 0,
+#         "error_type": null,
+#         "data_size_bytes": 2457600,
+#         "triggered_by": "scheduler"
+#       },
+#       {
+#         "integration_id": "int-124",
+#         "run_id": "run-457",
+#         "integration_system": "SAP-to-Database",
+#         "status": "failed",
+#         "environment": "production",
+#         "direction": "outbound",
+#         "started_at": "2025-11-28T10:02:00+0000",
+#         "completed_at": "2025-11-28T10:03:45+0000",
+#         "duration_ms": 105000,
+#         "queue_duration_ms": 500,
+#         "processing_duration_ms": 104500,
+#         "records_processed": 234,
+#         "error_count": 12,
+#         "error_type": "connection_timeout",
+#         "data_size_bytes": 345600,
+#         "triggered_by": "user@example.com"
+#       }
+#     ]
+#   }
+# }
+
+# ============================================================
+# RESULTING METRICS (Examples)
+# ============================================================
+# All metrics will have these labels from attributes:
+# - integration_name
+# - status
+# - environment
+# - direction
+# - error_type (if present)
+#
+# integration_runs_total{integration_name="Salesforce-to-Workday", status="completed", environment="production"} = 1
+# integration_runs_total{integration_name="SAP-to-Database", status="failed", environment="production"} = 1
+#
+# integration_duration_distribution{integration_name="Salesforce-to-Workday", status="completed"}
+#   - bucket{le="10000"} = 0
+#   - bucket{le="300000"} = 0
+#   - bucket{le="600000"} = 1
+#   - count = 1
+#   - sum = 323000
+#
+# integration_status_code{integration_name="Salesforce-to-Workday", status="completed"} = 1
+# integration_status_code{integration_name="SAP-to-Database", status="failed"} = 0
+

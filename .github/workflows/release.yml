@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write      # release-please needs to open PRs / update tags
+  pull-requests: write
+  packages: write      # to push images to GHCR
+  id-token: write
+
+env:
+  REGISTRY: ghcr.io
+  # This gives "owner/repo" → used as image name.
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  release:
+    name: Release please + Docker publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Run release-please
+        id: release
+        uses: google-github-actions/release-please-action@v4
+        with:
+          # For a Python project; adjust if you prefer "simple" or another type.
+          release-type: python
+          # Optional: use manifest if you want; leaving basic for now.
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # If you later need other files bumped, configure release-please config JSON.
+
+      # Only run the rest when a new release was actually created
+      - name: Checkout source
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          # Tag with semantic version from release-please and also latest.
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.release.outputs.tag_name }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest

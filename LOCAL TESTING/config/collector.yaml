@@ -1,0 +1,32 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: otel-collector:4317
+      http:
+        endpoint: otel-collector:4318
+
+exporters:
+  debug:
+    verbosity: detailed
+  prometheus:
+    endpoint: 0.0.0.0:8889
+
+  otlphttp:
+    endpoint: http://loki:3100/otlp
+    tls:
+      insecure: true
+      insecure_skip_verify: true
+
+extensions:
+  {}
+
+service:
+  extensions: []
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      exporters: [otlphttp]

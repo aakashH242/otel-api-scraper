@@ -1,0 +1,102 @@
+# Example source configuration using OAuth authentication (static token).
+# Use this when you have a pre-generated OAuth token stored in environment variables.
+
+sources:
+  - name: "github-api-static-token"
+
+    # API base URL and endpoint
+    baseUrl: "https://api.github.com"
+    endpoint: "/repos/myorg/myrepo/issues"
+
+    # How often to scrape this API
+    frequency: "30min"
+
+    # OAuth authentication with static token
+    auth:
+      type: oauth
+      # Environment variable name containing the OAuth token
+      token: GITHUB_TOKEN  # Reads from os.environ["GITHUB_TOKEN"]
+
+    # Scrape configuration
+    scrape:
+      # Type: instant (get current snapshot)
+      type: instant
+
+      # HTTP method
+      httpMethod: GET
+
+      # Run immediately on startup
+      runFirstScrape: true
+
+      # Additional headers
+      extraHeaders:
+        Accept: "application/vnd.github.v3+json"
+        User-Agent: "otel-api-scraper"
+
+      # Additional query parameters
+      extraArgs:
+        state: "open"  # Only fetch open issues
+        per_page: 100
+
+    # GitHub returns array directly, no need for dataKey
+    # Response format: [{"id": 123, "state": "open", "title": "..."}, ...]
+
+    # Enable delta detection
+    deltaDetection:
+      enabled: true
+      fingerprintMode: keys
+      fingerprintKeys:
+        - id
+        - updated_at
+      ttlSeconds: 3600  # 1 hour
+
+    # Define metrics to extract
+    counterReadings:
+      # Count issues by state and label
+      - name: "github_issues_total"
+        unit: "1"
+
+    gaugeReadings:
+      # Track number of comments on each issue
+      - name: "github_issue_comments"
+        dataKey: "comments"
+        unit: "1"
+
+    # Define attributes to attach to telemetry
+    attributes:
+      - name: "issue_id"
+        dataKey: "id"
+
+      - name: "issue_number"
+        dataKey: "number"
+
+      - name: "state"
+        dataKey: "state"
+
+      - name: "title"
+        dataKey: "title"
+
+      - name: "created_by"
+        dataKey: "user.login"
+
+    # Enable log generation
+    emitLogs: true
+
+    # Set log severity based on labels (if any critical labels exist)
+    logStatusField:
+      name: "state"
+      info:
+        value: "closed"
+        matchType: "equals"
+      warning:
+        value: "open"
+        matchType: "equals"
+
+# Environment variables required:
+# export GITHUB_TOKEN="ghp_xxxxxxxxxxxxxxxxxxxxx"
+#
+# To generate a GitHub personal access token:
+# 1. Go to GitHub Settings > Developer settings > Personal access tokens
+# 2. Generate new token with 'repo' scope
+# 3. Save the token securely and set it as an environment variable
+

@@ -1,0 +1,21 @@
+repos:
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.4.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: [--strict, feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert]
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.8
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format
+  - repo: local
+    hooks:
+      - id: pytest-cov
+        name: pytest with coverage (fail <90%)
+        entry: uv run python scripts/test_with_coverage.py
+        language: system
+        types: [python]
+        pass_filenames: false

@@ -1,0 +1,253 @@
+# Counter Metric Configuration Examples
+#
+# Counters represent monotonically increasing values (only go up, never down).
+# They're perfect for counting events, requests, errors, bytes processed, etc.
+#
+# There are THREE ways to configure counter values:
+# 1. Default increment (adds 1 per record) - no valueKey or fixedValue
+# 2. Fixed value (adds same amount per record) - use fixedValue
+# 3. From field in data (adds field value per record) - use valueKey
+#
+# All labels come from the 'attributes' section (no separate labels field!)
+
+sources:
+  - name: "counter-examples"
+
+    baseUrl: "https://api.example.com"
+    endpoint: "/v1/events"
+    frequency: "5min"
+
+    scrape:
+      type: instant
+      runFirstScrape: true
+
+    # Sample API response for reference:
+    # [
+    #   {
+    #     "event_id": "evt-123",
+    #     "event_type": "user_login",
+    #     "user_id": "user-456",
+    #     "status": "success",
+    #     "processing_time_ms": 150,
+    #     "bytes_processed": 2048,
+    #     "retry_count": 0,
+    #     "region": "us-east-1"
+    #   },
+    #   {
+    #     "event_id": "evt-124",
+    #     "event_type": "file_upload",
+    #     "user_id": "user-789",
+    #     "status": "success",
+    #     "processing_time_ms": 850,
+    #     "bytes_processed": 1048576,
+    #     "retry_count": 2,
+    #     "region": "eu-west-1"
+    #   }
+    # ]
+
+    # ============================================================
+    # COUNTER EXAMPLES - All Three Value Types
+    # ============================================================
+
+    counterReadings:
+      # ------------------------------------------------------
+      # 1. DEFAULT INCREMENT (adds 1 per record)
+      # ------------------------------------------------------
+      # No valueKey or fixedValue = adds 1 for each record
+      # Perfect for counting events, requests, items processed
+
+      - name: "events_total"
+        unit: "1"
+        # No valueKey, no fixedValue = each record adds 1
+        # Labels come from attributes: event_type, status, region
+
+      - name: "user_events_total"
+        unit: "1"
+        # Each event adds 1, labels will include user_id from attributes
+
+      - name: "successful_events_total"
+        unit: "1"
+        # Count all events (filtering can be done in Prometheus queries)
+
+      # ------------------------------------------------------
+      # 2. FIXED VALUE (adds same amount per record)
+      # ------------------------------------------------------
+      # Use fixedValue when you want each record to contribute
+      # a constant amount (not 1, not from data field)
+
+      - name: "event_weight_total"
+        fixedValue: 10
+        unit: "1"
+        # Each record adds 10 to the counter
+        # Useful for weighting, scoring, or custom business logic
+
+      - name: "processing_units_total"
+        fixedValue: 2.5
+        unit: "1"
+        # Each record adds 2.5 processing units
+        # Shows that fixedValue can be decimal
+
+      - name: "availability_points_total"
+        fixedValue: 1
+        unit: "1"
+        # Equivalent to default increment but explicit
+        # Good for clarity when you specifically want 1
+
+      # ------------------------------------------------------
+      # 3. FROM FIELD IN DATA (adds field value per record)
+      # ------------------------------------------------------
+      # Use valueKey to extract the counter increment from record fields
+      # Perfect for summing bytes, duration, counts, etc.
+
+      - name: "bytes_processed_total"
+        valueKey: "bytes_processed"
+        unit: "bytes"
+        # Each record adds its bytes_processed value to counter
+        # Record 1: +2048, Record 2: +1048576 = Total: 1050624
+
+      - name: "processing_time_total"
+        valueKey: "processing_time_ms"
+        unit: "milliseconds"
+        # Each record adds its processing time
+        # Record 1: +150ms, Record 2: +850ms = Total: 1000ms
+
+      - name: "retry_attempts_total"
+        valueKey: "retry_count"
+        unit: "1"
+        # Each record adds its retry count
+        # Record 1: +0, Record 2: +2 = Total: 2 retries
+
+      # ------------------------------------------------------
+      # 4. CONDITIONAL COUNTERS (using fixedValue creatively)
+      # ------------------------------------------------------
+      # You can create multiple counters for different conditions
+
+      - name: "error_events_total"
+        fixedValue: 1
+        unit: "1"
+        # Filter for errors in Prometheus:
+        # error_events_total{status="error"}
+
+      - name: "high_latency_events_total"
+        fixedValue: 1
+        unit: "1"
+        # Filter in Prometheus:
+        # high_latency_events_total{processing_time_ms>500}
+
+      # ------------------------------------------------------
+      # 5. BUSINESS METRICS (valueKey with custom logic)
+      # ------------------------------------------------------
+
+      - name: "revenue_cents_total"
+        valueKey: "transaction_amount_cents"
+        unit: "1"
+        # If your data has transaction amounts
+        # Each record adds its transaction value
+
+      - name: "disk_space_used_total"
+        valueKey: "file_size_bytes"
+        unit: "bytes"
+        # Track cumulative disk usage
+
+      - name: "api_calls_weighted_total"
+        valueKey: "cost_weight"
+        unit: "1"
+        # If each API call has a cost weight/complexity score
+
+    # ============================================================
+    # ATTRIBUTES - These become labels on ALL counter metrics!
+    # ============================================================
+
+    attributes:
+      - name: "event_type"
+        dataKey: "event_type"
+        # Labels: event_type=user_login, event_type=file_upload
+
+      - name: "status"
+        dataKey: "status"
+        # Labels: status=success, status=error, status=pending
+
+      - name: "region"
+        dataKey: "region"
+        # Labels: region=us-east-1, region=eu-west-1
+
+      - name: "user_id"
+        dataKey: "user_id"
+        # Labels: user_id=user-456, user_id=user-789
+
+      # These fields can be used in Prometheus queries for filtering:
+      - name: "processing_time_ms"
+        dataKey: "processing_time_ms"
+        # Can filter: processing_time_ms>500 for high latency
+
+      - name: "bytes_processed"
+        dataKey: "bytes_processed"
+        # Can filter: bytes_processed>1000000 for large files
+
+# ============================================================
+# RESULTING PROMETHEUS METRICS
+# ============================================================
+
+# Default increment counters:
+# events_total{event_type="user_login", status="success", region="us-east-1"} = 1
+# events_total{event_type="file_upload", status="success", region="eu-west-1"} = 1
+# Total events_total = 2
+
+# Fixed value counters:
+# event_weight_total{event_type="user_login", status="success"} = 10
+# event_weight_total{event_type="file_upload", status="success"} = 10
+# Total event_weight_total = 20
+
+# Field value counters:
+# bytes_processed_total{event_type="user_login", region="us-east-1"} = 2048
+# bytes_processed_total{event_type="file_upload", region="eu-west-1"} = 1048576
+# Total bytes_processed_total = 1050624
+
+# processing_time_total{event_type="user_login"} = 150
+# processing_time_total{event_type="file_upload"} = 850
+# Total processing_time_total = 1000
+
+# ============================================================
+# WHEN TO USE EACH TYPE
+# ============================================================
+
+# DEFAULT INCREMENT (no valueKey/fixedValue):
+# ✅ Count events, requests, errors, items
+# ✅ Simple "how many X happened" metrics
+# ✅ Boolean conditions (success/failure counts)
+
+# FIXED VALUE:
+# ✅ Weighted scoring systems
+# ✅ Business logic constants
+# ✅ Artificial multipliers
+# ✅ When you need explicit value (not 1)
+
+# FROM FIELD (valueKey):
+# ✅ Sum bytes, duration, money, quantities
+# ✅ Accumulate numeric values from records
+# ✅ Track totals that vary per record
+# ✅ Most common pattern for meaningful metrics
+
+# ============================================================
+# IMPORTANT NOTES
+# ============================================================
+
+# 1. PRIORITY: fixedValue > valueKey > default(1)
+#    - If fixedValue is set, it's used (ignores valueKey)
+#    - If no fixedValue but valueKey is set, uses field value
+#    - If neither set, adds 1 per record
+
+# 2. ERROR HANDLING:
+#    - If valueKey field is missing/null: adds 0 (skips record)
+#    - If valueKey field is non-numeric: adds 1 (fallback)
+#    - fixedValue is always used as-is
+
+# 3. ALL COUNTERS GET ALL ATTRIBUTES AS LABELS:
+#    - Every counter gets every attribute as a label
+#    - Use attributes strategically (avoid high cardinality)
+#    - Filter using labels in Prometheus queries
+
+# 4. UNITS:
+#    - Use "1" for dimensionless counts
+#    - Use "bytes", "milliseconds", etc. for quantities
+#    - Units show up in OTEL metadata

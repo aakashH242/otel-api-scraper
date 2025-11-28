@@ -1,0 +1,170 @@
+# Example source configuration using OAuth authentication (runtime token fetch).
+# Use this when the API requires fetching a fresh OAuth token before each request
+# using client credentials flow.
+
+sources:
+  - name: "oauth-api-runtime"
+
+    # API base URL and endpoint
+    baseUrl: "https://api.example.com"
+    endpoint: "/v1/events"
+
+    # How often to scrape this API
+    frequency: "10min"
+
+    # OAuth authentication with runtime token acquisition
+    auth:
+      type: oauth
+      # Credentials for obtaining the token
+      username: OAUTH_CLIENT_ID      # Reads from os.environ["OAUTH_CLIENT_ID"]
+      password: OAUTH_CLIENT_SECRET  # Reads from os.environ["OAUTH_CLIENT_SECRET"]
+
+      # Token endpoint configuration
+      getTokenEndpoint: "https://auth.example.com/oauth/token"
+      getTokenMethod: "POST"
+
+      # The JSON key in the token response that contains the access token
+      tokenKey: "access_token"
+
+      # Optional headers to send when fetching the token
+      tokenHeaders:
+        Content-Type: "application/x-www-form-urlencoded"
+        Accept: "application/json"
+
+      # Optional body data to send with token request
+      bodyData:
+        type: json
+        data:
+          grant_type: "client_credentials"
+          scope: "read:events"
+
+    # Scrape configuration
+    scrape:
+      # Type: range (scrape data over a time window)
+      type: range
+
+      # HTTP method
+      httpMethod: GET
+
+      # Run immediately on startup
+      runFirstScrape: true
+
+      # Time format for timestamps
+      timeFormat: "%Y-%m-%dT%H:%M:%SZ"
+
+      # Range parameters configuration
+      rangeKeys:
+        startKey: "start_time"
+        endKey: "end_time"
+        firstScrapeStart: "2025-01-01T00:00:00Z"
+
+      # Additional headers for the API request (not the token request)
+      extraHeaders:
+        Accept: "application/json"
+
+      # Additional query parameters
+      extraArgs:
+        limit: 100
+
+    # Data is nested under "events" key
+    # Response format: {"events": [{"id": "evt_123", "type": "user.login", ...}], "total": 42}
+    dataKey: "events"
+
+    # Enable delta detection
+    deltaDetection:
+      enabled: true
+      fingerprintMode: keys
+      fingerprintKeys:
+        - id
+        - timestamp
+      ttlSeconds: 7200  # 2 hours
+
+    # Filter configuration
+    filters:
+      # Drop test events
+      drop:
+        - any:
+            - field: "environment"
+              matchType: "equals"
+              value: "test"
+
+      # Only keep certain event types
+      keep:
+        - all:
+            - field: "type"
+              matchType: "in"
+              value: ["user.login", "user.logout", "user.signup", "payment.success"]
+
+      # Limit records per scrape
+      limits:
+        maxRecordsPerScrape: 5000
+
+    # Define metrics to extract
+    counterReadings:
+      # Count events by type
+      - name: "events_total"
+        unit: "1"
+
+      # Track event processing duration if available
+      - name: "event_duration_total"
+        valueKey: "duration_ms"
+        unit: "milliseconds"
+
+    histogramReadings:
+      # Distribution of event durations
+      - name: "event_duration_distribution"
+        dataKey: "duration_ms"
+        unit: "milliseconds"
+        buckets: [10, 50, 100, 250, 500, 1000, 2500, 5000]
+
+    # Define attributes to attach to telemetry
+    attributes:
+      - name: "event_id"
+        dataKey: "id"
+
+      - name: "event_type"
+        dataKey: "type"
+
+      - name: "user_id"
+        dataKey: "user_id"
+
+      - name: "environment"
+        dataKey: "environment"
+
+      - name: "status"
+        dataKey: "status"
+        # Also emit status as a metric
+        asMetric:
+          metricName: "event_status_code"
+          valueMapping:
+            "success": 1
+            "pending": 0.5
+            "failed": 0
+          unit: "1"
+
+    # Enable log generation
+    emitLogs: true
+
+    # Set log severity based on event status
+    logStatusField:
+      name: "status"
+      info:
+        value: "success"
+        matchType: "equals"
+      warning:
+        value: "pending"
+        matchType: "equals"
+      error:
+        value: ["failed", "error"]
+        matchType: "in"
+
+# Environment variables required:
+# export OAUTH_CLIENT_ID="your-client-id"
+# export OAUTH_CLIENT_SECRET="your-client-secret"
+#
+# How this works:
+# 1. Before each scrape, the scraper calls getTokenEndpoint with credentials
+# 2. The token endpoint returns: {"access_token": "eyJ...", "expires_in": 3600}
+# 3. The scraper extracts the value from tokenKey ("access_token")
+# 4. This token is used in the Authorization header for the actual API request
+

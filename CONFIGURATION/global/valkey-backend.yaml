@@ -1,0 +1,20 @@
+# Recommended production deployment pattern and in HA scenarios
+# Requires a running Valkey / Redis deployment
+# The scheduler also uses this backend
+scraper:
+  logLevel: info"
+  otelCollectorEndpoint: https://change-me
+  enableAdminApi: true
+  # Name of the environment variable containing the admin secret (required when enableAdminApi: true).
+  adminSecretEnv: admin_secret
+  maxGlobalConcurrency: 16
+  defaultSourceConcurrency: 8
+  fingerprintStore:
+    backend: valkey
+    valkey:
+      host: https://change-me
+      port: 6379
+      db: 0
+      # Create an environment variable with the below name containing the actual password
+      password: valkey_password
+      ssl: true
