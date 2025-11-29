@@ -4,7 +4,7 @@ This directory contains comprehensive examples for the two scrape types supporte
 
 ## Available Examples
 
-### 1. [Range-Type Scrape](./range-type.yaml)
+### 1. [Range-Type Scrape](range-type.yaml)
 **Use Case:** Time-series data, historical metrics, event logs
 
 **Scrapes data over a time window** (e.g., "get all integration runs from 1 hour ago to now")
@@ -43,7 +43,7 @@ parallelWindow:
 
 ---
 
-### 2. [Instant-Type Scrape](./instant-type.yaml)
+### 2. [Instant-Type Scrape](instant-type.yaml)
 **Use Case:** Current state, health checks, real-time monitoring
 
 **Scrapes current snapshot without time parameters** (e.g., "get current service health status")

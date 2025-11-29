@@ -341,3 +341,58 @@ def test_build_store_memory_fallback_without_cfg_class():
     dummy_cfg = types.SimpleNamespace(backend="memory", maxEntriesPerSource=2)
     store = build_store(dummy_cfg)  # type: ignore[arg-type]
     assert isinstance(store, MemoryFingerprintStore)
+
+
+@pytest.mark.asyncio
+async def test_sqlite_fingerprint_retry_on_lock(monkeypatch):
+    import aiosqlite
+
+    class FakeDB:
+        def __init__(self):
+            self.calls = 0
+            self.committed = False
+
+        async def execute(self, sql, params):
+            self.calls += 1
+            if self.calls == 1:
+                raise aiosqlite.OperationalError("database is locked")
+            self.sql = sql
+            self.params = params
+
+        async def commit(self):
+            self.committed = True
+
+    fake_db = FakeDB()
+    store = SqliteFingerprintStore(
+        "ignored.db", max_entries=1, lock_retries=3, lock_backoff=0
+    )
+
+    async def fake_ensure(self):
+        return fake_db
+
+    monkeypatch.setattr(
+        store, "_ensure", fake_ensure.__get__(store, SqliteFingerprintStore)
+    )
+
+    await store._execute_with_retry(fake_db, "SELECT 1", tuple(), commit=True)
+
+    assert fake_db.calls == 2
+    assert fake_db.committed is True
+
+
+@pytest.mark.asyncio
+async def test_sqlite_fingerprint_raises_on_non_lock(monkeypatch):
+    import aiosqlite
+
+    class FakeDB:
+        async def execute(self, *_args, **_kwargs):
+            raise aiosqlite.OperationalError("other failure")
+
+        async def commit(self):
+            raise AssertionError("should not commit on failure")
+
+    store = SqliteFingerprintStore("ignored.db", max_entries=1, lock_retries=1)
+    fake_db = FakeDB()
+
+    with pytest.raises(aiosqlite.OperationalError):
+        await store._execute_with_retry(fake_db, "SQL", tuple(), commit=True)

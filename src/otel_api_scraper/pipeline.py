@@ -28,6 +28,7 @@ class RecordPipeline:
         """
         self.store = fingerprint_store
         self.global_cfg = global_cfg
+        self.last_stats: dict[str, int] = {"hits": 0, "misses": 0, "total": 0}
 
     async def run(
         self, records: List[dict[str, Any]], source: cfg.SourceConfig
@@ -41,6 +42,7 @@ class RecordPipeline:
         Returns:
             list[dict[str, Any]]: Records that pass filters and delta detection.
         """
+        self.last_stats = {"hits": 0, "misses": 0, "total": len(records)}
         logger.debug(
             "Pipeline start for source %s with %s records", source.name, len(records)
         )
@@ -111,15 +113,21 @@ class RecordPipeline:
         """Deduplicate records using configured fingerprint store."""
         dd = source.deltaDetection
         if not dd.enabled:
+            self.last_stats = {"hits": 0, "misses": len(records), "total": len(records)}
             return records
         ttl = dd.ttlSeconds or self.global_cfg.defaultTtlSeconds
         kept: List[dict[str, Any]] = []
         keys = dd.fingerprintKeys if dd.fingerprintMode == "keys" else None
+        hits = 0
+        misses = 0
         for record in records:
             payload = fingerprint_payload(record, keys, source.name)
             fp_hash = compute_hash(payload)
             if await self.store.contains(fp_hash, source.name, ttl):
+                hits += 1
                 continue
             await self.store.touch(fp_hash, source.name, ttl)
+            misses += 1
             kept.append(record)
+        self.last_stats = {"hits": hits, "misses": misses, "total": len(records)}
         return kept

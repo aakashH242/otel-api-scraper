@@ -1,0 +1,106 @@
+site_name: API2OTEL
+site_description: "OpenTelemetry-friendly API scraping and export toolkit"
+site_url: "https://aakashh242.github.io/otel-api-scraper/"
+site_author: "Your Name"
+repo_url: "https://github.com/aakashh242/otel-api-scraper"
+repo_name: "aakashh242/otel-api-scraper"
+
+docs_dir: docs
+site_dir: site
+use_directory_urls: true
+
+theme:
+  name: material
+  language: en
+  logo: logo.svg
+  favicon: logo.png
+  palette:
+    - scheme: slate
+      primary: deep purple
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+    - scheme: default
+      primary: indigo
+      accent: deep purple
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+  features:
+    - navigation.instant
+    - navigation.tabs
+    - navigation.top
+    - navigation.tracking
+    - navigation.footer
+    - toc.integrate
+    - content.code.copy
+    - content.tabs.link
+    - search.highlight
+    - search.share
+  icon:
+    repo: fontawesome/brands/github
+
+nav:
+  - Overview: index.md
+  - Getting started:
+      - Local Installation: local_install.md
+      - Docker Compose: LOCAL_TESTING.md
+      - Configuration: CONFIGURATION/README.md
+  - Configuration:
+      - Global Settings: CONFIGURATION/global/README.md
+      - Source Specific Settings:
+          - Overview: CONFIGURATION/sources/README.md
+          - Auth Settings: CONFIGURATION/sources/auth/README.md
+          - Recording Measurements: CONFIGURATION/sources/measurements/README.md
+          - Scrape Types: CONFIGURATION/sources/scrape-types/README.md
+  - Self Telemetry: TELEMETRY.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            separate_signature: true
+            show_source: true
+  - git-revision-date-localized:
+      enabled: !ENV [CI, true]
+      fallback_to_build_date: true
+      type: date
+      enable_creation_date: false
+  - minify:
+      minify_html: true
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.mark
+  - pymdownx.caret
+  - pymdownx.tilde
+  - pymdownx.smartsymbols
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: "https://github.com/aakashh242/otel-api-scraper"
+      name: "GitHub"

@@ -4,7 +4,7 @@ This directory contains complete, working examples for all supported authenticat
 
 ## Available Examples
 
-### 1. [No Authentication](./no-auth.yaml)
+### 1. [No Authentication](no-auth.yaml)
 **Use Case:** Public APIs that don't require authentication
 
 **Example API:** JSONPlaceholder (free fake REST API)
@@ -22,7 +22,7 @@ uv run otel-api-scraper
 
 ---
 
-### 2. [Basic Authentication](./basic-auth.yaml)
+### 2. [Basic Authentication](basic-auth.yaml)
 **Use Case:** APIs using HTTP Basic Auth (username/password)
 
 **Key Features:**
@@ -39,7 +39,7 @@ uv run otel-api-scraper
 
 ---
 
-### 3. [API Key Authentication](./apikey-auth.yaml)
+### 3. [API Key Authentication](apikey-auth.yaml)
 **Use Case:** Most modern REST APIs (Stripe, SendGrid, etc.)
 
 **Example API:** Stripe Charges API
@@ -59,7 +59,7 @@ uv run otel-api-scraper
 
 ---
 
-### 4. [OAuth - Static Token](./oauth-static-token.yaml)
+### 4. [OAuth - Static Token](oauth-static-token.yaml)
 **Use Case:** APIs with long-lived OAuth tokens (GitHub, GitLab)
 
 **Example API:** GitHub Issues API
@@ -82,7 +82,7 @@ uv run otel-api-scraper
 
 ---
 
-### 5. [OAuth - Runtime Token Fetch](./oauth-runtime-token.yaml)
+### 5. [OAuth - Runtime Token Fetch](oauth-runtime-token.yaml)
 **Use Case:** OAuth2 Client Credentials flow
 
 **Key Features:**
@@ -108,7 +108,7 @@ uv run otel-api-scraper
 
 ---
 
-### 6. [Azure AD Authentication](./azuread-auth.yaml)
+### 6. [Azure AD Authentication](azuread-auth.yaml)
 **Use Case:** Microsoft Azure APIs, Microsoft Graph, Microsoft 365
 
 **Example APIs:**
@@ -143,12 +143,12 @@ az ad sp create-for-rbac \
 
 | API Provider | Recommended Auth Type | Example File |
 |--------------|----------------------|--------------|
-| Public APIs (no auth) | None | [no-auth.yaml](./no-auth.yaml) |
-| Internal/Legacy APIs | Basic Auth | [basic-auth.yaml](./basic-auth.yaml) |
-| Modern REST APIs | API Key | [apikey-auth.yaml](./apikey-auth.yaml) |
-| GitHub, GitLab | OAuth (Static) | [oauth-static-token.yaml](./oauth-static-token.yaml) |
-| SaaS APIs with OAuth2 | OAuth (Runtime) | [oauth-runtime-token.yaml](./oauth-runtime-token.yaml) |
-| Azure, Microsoft 365 | Azure AD | [azuread-auth.yaml](./azuread-auth.yaml) |
+| Public APIs (no auth) | None | [no-auth.yaml](no-auth.yaml) |
+| Internal/Legacy APIs | Basic Auth | [basic-auth.yaml](basic-auth.yaml) |
+| Modern REST APIs | API Key | [apikey-auth.yaml](apikey-auth.yaml) |
+| GitHub, GitLab | OAuth (Static) | [oauth-static-token.yaml](oauth-static-token.yaml) |
+| SaaS APIs with OAuth2 | OAuth (Runtime) | [oauth-runtime-token.yaml](oauth-runtime-token.yaml) |
+| Azure, Microsoft 365 | Azure AD | [azuread-auth.yaml](azuread-auth.yaml) |
 
 ## Using These Examples
 

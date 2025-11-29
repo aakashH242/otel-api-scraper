@@ -1,6 +1,6 @@
 [project]
 name = "otel-api-scraper"
-version = "0.3.0"
+version = "0.0.0"
 description = "Config-driven async API scraper emitting OpenTelemetry metrics and logs."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -19,10 +19,19 @@ dependencies = [
     "valkey>=6.0.0",
     "fastapi>=0.115,<0.116",
     "uvicorn[standard]>=0.32,<0.33",
-    "python-dateutil>=2.9.0"
+    "python-dateutil>=2.9.0",
+    "aiosqlite==0.21.0"
 ]
 
 [project.optional-dependencies]
+docs = [
+  "mkdocs>=1.6.0,<2.0.0",
+  "mkdocs-material>=9.5.0,<10.0.0",
+  "mkdocstrings[python]>=0.26.0,<1.0.0",
+  "mkdocs-git-revision-date-localized-plugin>=1.2.0,<2.0.0",
+  "mkdocs-minify-plugin>=0.8.0,<1.0.0",
+]
+
 dev = [
     "ruff>=0.6.0",
     "pytest>=8.3.0",

@@ -5,7 +5,6 @@ import pytest
 
 from otel_api_scraper import config as cfg
 from otel_api_scraper.telemetry import (
-    CallbackOptions,
     GaugeAggregator,
     Telemetry,
     TelemetrySink,
@@ -43,11 +42,8 @@ class FakeGauge:
     def __init__(self):
         self.values = []
 
-    def set_values(self, values):
-        self.values = values
-
-    def __call__(self, *args, **kwargs):
-        return self
+    def set(self, value, attributes=None):
+        self.values.append((value, attributes or {}))
 
 
 class FakeMeter:
@@ -68,7 +64,13 @@ class FakeMeter:
 
     def create_observable_gauge(self, name, callbacks, unit):
         g = FakeGauge()
-        self.gauges[name] = (g, callbacks)
+        self.gauges[name] = g
+        return g
+
+    # Support synchronous gauges for compatibility
+    def create_gauge(self, name, unit, description=None):
+        g = FakeGauge()
+        self.gauges[name] = g
         return g
 
 
@@ -161,7 +163,7 @@ def test_emit_metrics_non_dry_run(monkeypatch):
     t = telemetry_with_fakes(dry_run=False)
     src = make_source()
     src.gaugeReadings = [cfg.GaugeReading(name="g", dataKey="v", unit="1")]
-    src.counterReadings = [cfg.CounterReading(name="c", valueKey="cval", unit="1")]
+    src.counterReadings = [cfg.CounterReading(name="c", dataKey="cval", unit="1")]
     src.histogramReadings = [
         cfg.HistogramReading(name="h", dataKey="hval", unit="ms", buckets=[1.0])
     ]
@@ -190,7 +192,7 @@ def test_emit_metrics_handles_missing_and_bad_values():
     t = telemetry_with_fakes(dry_run=False)
     src = make_source()
     src.gaugeReadings = [cfg.GaugeReading(name="g", dataKey="missing", unit="1")]
-    src.counterReadings = [cfg.CounterReading(name="c", valueKey="bad", unit="1")]
+    src.counterReadings = [cfg.CounterReading(name="c", dataKey="bad", unit="1")]
     src.histogramReadings = [
         cfg.HistogramReading(name="h", dataKey="strval", unit="ms", buckets=[1.0])
     ]
@@ -249,24 +251,27 @@ def test_record_self_scrape_dry_run_and_real():
     src = make_source()
     t = telemetry_with_fakes(dry_run=True)
     t.self_enabled = True
-    t.record_self_scrape(src.name, "success", 1.2, 3)
+    t.record_self_scrape(src.name, "success", 1.2, 3, api_type="instant")
 
     t2 = telemetry_with_fakes(dry_run=False)
     t2.self_enabled = True
-    t2.record_self_scrape(src.name, "error", 2.5, 4)
+    t2.record_self_scrape(src.name, "error", 2.5, 4, api_type="range")
     assert t2.meter.counters["scraper_runs_total"].adds[0][0] == 1
     assert t2.meter.histograms["scraper_run_duration_seconds"].records[0][0] == 2.5
+    assert t2.self_gauges["scraper_last_run_duration_seconds"].values[0][0] == 2.5
     assert "scraper.self" in t2.logger_provider.loggers
 
 
 def test_record_self_scrape_disabled_and_dry_run():
     t = telemetry_with_fakes(dry_run=False)
     t.self_enabled = False
-    t.record_self_scrape("svc", "success", 1.0, 1)  # returns early
+    t.record_self_scrape("svc", "success", 1.0, 1, api_type="instant")  # returns early
 
     t2 = telemetry_with_fakes(dry_run=True)
     t2.self_enabled = True
-    t2.record_self_scrape("svc", "success", 1.0, 1)  # dry-run logging path
+    t2.record_self_scrape(
+        "svc", "success", 1.0, 1, api_type="instant"
+    )  # dry-run logging path
     t2._emit_self_log("svc", "success", 1.0, 1)  # direct call to cover dry-run return
 
 
@@ -295,11 +300,13 @@ def test_force_flush_helpers(monkeypatch):
     t = telemetry_with_fakes(dry_run=False)
     called = {}
 
-    async def awaitable():
-        called["task"] = True
+    class AwaitableObj:
+        def __await__(self):
+            called["task"] = True
+            yield None
 
-    t.meter_provider.force_flush_result = awaitable()
-    t.logger_provider.force_flush_result = awaitable()
+    t.meter_provider.force_flush_result = AwaitableObj()
+    t.logger_provider.force_flush_result = AwaitableObj()
 
     monkeypatch.setattr(
         "asyncio.create_task", lambda coro: called.setdefault("created", True)
@@ -330,8 +337,7 @@ def test_sink_and_gauge_callback(caplog):
     fake_meter = FakeMeter()
     agg = GaugeAggregator(fake_meter, "g", "1")
     agg.set_values([(1.0, {"a": "b"})])
-    obs = agg._callback(CallbackOptions())
-    assert obs[0].value == 1.0
+    assert agg.values[0][0] == 1.0
 
 
 def test_get_logger_dry_run(monkeypatch):
@@ -343,7 +349,11 @@ def test_get_logger_dry_run(monkeypatch):
 def test_emit_metrics_error_branches(monkeypatch, caplog):
     caplog.set_level("WARNING")
     t = telemetry_with_fakes(dry_run=False)
-    t._force_flush_metrics = lambda: (_ for _ in ()).throw(RuntimeError("flush error"))
+
+    def bad_flush():
+        raise RuntimeError("flush error")
+
+    t._force_flush_metrics = bad_flush
     src = make_source()
     src.gaugeReadings = [cfg.GaugeReading(name="g", dataKey="bad", unit="1")]
     src.histogramReadings = [
@@ -370,6 +380,46 @@ def test_emit_attribute_metrics_unmapped_value(caplog):
     records = [{"meta": {"region": "us"}}]
     t._emit_attribute_metrics(src, records)
     assert ("svc", "region_metric") in t.counters
+
+
+def test_record_dedupe_metrics():
+    t = telemetry_with_fakes(dry_run=False)
+    t.self_enabled = True
+    t.record_dedupe("svc", "instant", hits=5, misses=3, total=8)
+    assert t.meter.counters["scraper_dedupe_hits_total"].adds[0][0] == 5
+    assert t.self_gauges["scraper_dedupe_hit_rate"].values[0][0] == 5 / 8
+
+
+def test_record_cleanup_metrics():
+    t = telemetry_with_fakes(dry_run=False)
+    t.self_enabled = True
+    t.record_cleanup("fingerprint_cleanup", "sqlite", duration_seconds=1.5, cleaned=2)
+    assert t.meter.histograms["scraper_cleanup_duration_seconds"].records[0][0] == 1.5
+    assert t.self_gauges["scraper_cleanup_last_items"].values[0][0] == 2
+
+
+def test_record_dedupe_disabled_and_dry_run():
+    t = telemetry_with_fakes(dry_run=False)
+    t.self_enabled = False
+    t.record_dedupe("svc", "instant", hits=1, misses=1, total=2)
+    assert "scraper_dedupe_hits_total" not in t.meter.counters
+
+    t2 = telemetry_with_fakes(dry_run=True)
+    t2.self_enabled = True
+    t2.record_dedupe("svc", "instant", hits=1, misses=1, total=2)
+    assert t2.meter is None
+
+
+def test_record_cleanup_disabled_and_dry_run():
+    t = telemetry_with_fakes(dry_run=False)
+    t.self_enabled = False
+    t.record_cleanup("job", "backend", 1.0, cleaned=None)
+    assert "scraper_cleanup_duration_seconds" not in t.meter.histograms
+
+    t2 = telemetry_with_fakes(dry_run=True)
+    t2.self_enabled = True
+    t2.record_cleanup("job", "backend", 1.0, cleaned=None)
+    assert t2.meter is None
 
 
 def test_resolve_severity_info_branch():

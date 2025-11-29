@@ -40,7 +40,7 @@ def parse_frequency(expr: str) -> timedelta:
     """Convert a frequency string to a timedelta.
 
     Args:
-        expr: Frequency expression such as '5min', '1h', '1d', '1w', or '1m'.
+        expr: Frequency expression such as '5min', '1h', '1d', '1w', '1m', or '1mon'.
 
     Returns:
         timedelta: Duration represented by the expression.
@@ -48,12 +48,12 @@ def parse_frequency(expr: str) -> timedelta:
     Raises:
         ValueError: If the expression does not match expected formats.
     """
-    match = re.fullmatch(r"(\d+)(min|h|d|w|m)", expr.strip())
+    match = re.fullmatch(r"(\d+)(min|m|h|d|w|mon)", expr.strip())
     if not match:
         raise ValueError(f"Invalid frequency '{expr}'")
     value = int(match.group(1))
     unit = match.group(2)
-    if unit == "min":
+    if unit in ("min", "m"):
         return timedelta(minutes=value)
     if unit == "h":
         return timedelta(hours=value)
@@ -61,10 +61,10 @@ def parse_frequency(expr: str) -> timedelta:
         return timedelta(days=value)
     if unit == "w":
         return timedelta(weeks=value)
-    if unit == "m":
+    if unit == "mon":
         # Treat months as 30 days for scheduling purposes.
         return timedelta(days=value * 30)
-    raise ValueError(f"Unsupported frequency unit '{unit}'")
+    raise ValueError(f"Unsupported frequency unit '{unit}'")  # pragma: no cover
 
 
 def parse_datetime(value: str, fmt: str | None) -> datetime:
@@ -132,12 +132,14 @@ def split_key(path: str | None) -> List[str]:
     return parts
 
 
-def lookup_path(data: Any, path: str | None) -> Any:
+def lookup_path(data: Any, path: str | None, root: Any | None = None) -> Any:
     """Fetch a value from nested data using a dot-separated path.
 
     Args:
         data: Input object (dict-like).
         path: Dot path with '/.' supporting literal dots and optional '$root.' prefix.
+        root: Optional root object; used when path starts with '$root.' to access values
+            outside the extracted record scope.
 
     Returns:
         Any: Value if found; otherwise None.
@@ -145,8 +147,12 @@ def lookup_path(data: Any, path: str | None) -> Any:
     if path is None:
         return None
     if path.startswith("$root."):
+        if root is None or not isinstance(root, dict):
+            raise ShapeMismatch("Root-scoped lookup requires an object payload")
         path = path[len("$root.") :]
-    current = data
+        current = root
+    else:
+        current = data
     for part in split_key(path):
         if isinstance(current, dict) and part in current:
             current = current[part]
