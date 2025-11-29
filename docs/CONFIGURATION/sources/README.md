@@ -726,7 +726,7 @@ sources:
 
 For comprehensive, working examples of specific configuration aspects, see these specialized directories:
 
-### 🔐 [Authentication Examples](auth/)
+### 🔐 [Authentication Examples](auth/README.md)
 Complete examples for all supported authentication methods:
 - **[No Authentication](auth/no-auth.yaml)** - Public APIs
 - **[Basic Auth](auth/basic-auth.yaml)** - Username/password authentication
@@ -741,7 +741,7 @@ Each example includes:
 - ✅ Real-world API examples
 - ✅ Security best practices
 
-### ⏱️ [Scrape Types Examples](scrape-types/)
+### ⏱️ [Scrape Types Examples](scrape-types/README.md)
 Comprehensive examples for both scrape types:
 - **[Range-Type Scraping](scrape-types/range-type.yaml)** - Time-window based data collection
 - **[Instant-Type Scraping](scrape-types/instant-type.yaml)** - Current state snapshots
@@ -752,7 +752,7 @@ Key differences explained:
 - Parallel window processing
 - Historical backfill patterns
 
-### 📊 [Measurement Types Examples](measurements/)
+### 📊 [Measurement Types Examples](measurements/README.md)
 Detailed examples for all three metric types:
 - **[Counter Metrics](measurements/counters.yaml)** - Monotonically increasing values
 - **[Histogram Metrics](measurements/histograms.yaml)** - Value distributions and percentiles
