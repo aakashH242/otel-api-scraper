@@ -118,6 +118,10 @@ sources: [map]
     # Example: "15min", "1h", "1d".
     frequency: [string]
 
+    # Run a scrape when the service runs for the first time or the source is newly added to the config.
+    # Applies to both range and instant types.
+    runFirstScrape: [boolean|default false]
+
     # Authentication configuration for this source.
     # For APIs that do not require authentication, this field can be omitted.
     auth: [map]
@@ -187,10 +191,6 @@ sources: [map]
       # HTTP method to use when calling the API.
       # Supported values: GET, POST.
       httpMethod: [string|default GET]
-
-      # Run a scrape when the service runs for the first time or the source is newly added to the config.
-      # Applies to both range and instant types.
-      runFirstScrape: [boolean|default false]
 
       # Optional override of timestamp format for this source.
       # If not set, scraper.defaultTimeFormat is used.
