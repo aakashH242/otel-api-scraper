@@ -1,1 +1,447 @@
-D:/python_projects/opensource-contribs/otel-api-scraper/config.yaml.template
+# Top-level configuration for the API-to-OTEL scraper.
+scraper:
+  # Generate telemetry data for the controller itself.
+  # Controller metrics/logs are sent to the same collector configured below.
+  enableSelfTelemetry: [boolean|default false]
+
+  # Service name to use for OTEL resources when emitting telemetry (self and sources).
+  serviceName: [string|default "otel-api-scrapper"]
+
+  # Allow overlapping scans globally. If false, per-source scans will not start while a prior run is active.
+  allowOverlapScans: [boolean|default false]
+
+  # Log level of emitted logs from the controller.
+  # Typical values: debug, info, warn, error.
+  logLevel: [string|default debug]
+
+  # OpenTelemetry collector endpoint where generated telemetry data will be sent.
+  # Example: "http://otel-collector:4317"
+  otelCollectorEndpoint: [string]
+
+  # Transport protocol for OTLP exporters. Supported values: grpc, http.
+  otelTransport: [string|oneof "grpc","http"|default "grpc"]
+
+  # Enforce TLS handshake when sending data to the collector.
+  # If set to false, the controller will allow insecure connections (http).
+  enforceTls: [boolean|default true]
+
+  # If set to true, the scraper will NOT emit any real telemetry and will NOT initialize
+  # any OTEL exporters/flushers. Instead, it will only log what would have been emitted
+  # (metrics and logs) for debugging and validation.
+  dryRun: [boolean|default false]
+
+  # Wait for running scrape processes to finish before shutting down.
+  # If set to false, the controller may terminate in-flight scrapes immediately on shutdown.
+  terminateGracefully: [boolean|default true]
+
+  # Port on which the controller's HTTP APIs (admin, health, etc.) will be run.
+  servicePort: [integer|default 80]
+
+  # Enables the admin endpoint which can be used to trigger manual scrapes,
+  # list data sources and view the effective config.
+  enableAdminApi: [boolean|default false]
+  # Name of the environment variable containing the admin secret (required when enableAdminApi: true).
+  adminSecretEnv: [string|optional]
+
+  # Default timestamp format used for all time values (start/end, firstScrapeStart, etc.)
+  # unless overridden by a source.
+  # This must be a valid Python datetime format string.
+  # Example: "%Y-%m-%dT%H:%M:%S%z" → "2025-11-28T10:15:00+00:00".
+  defaultTimeFormat: [string|default "%Y-%m-%dT%H:%M:%S%z"]
+
+  # Maximum number of HTTP requests that can run in parallel across ALL sources.
+  # This is enforced as a global concurrency limit.
+  maxGlobalConcurrency: [integer|default 10]
+
+  # Default maximum number of concurrent HTTP requests per source.
+  # If a source does not specify its own scrape.maxConcurrency, this value is used.
+  defaultSourceConcurrency: [integer|default 4]
+
+  # Global configuration for storing and cleaning fingerprints used for delta detection.
+  # The same backend also stores last-success/scheduling state.
+  fingerprintStore:
+    # Backend used to store fingerprints.
+    # Supported values: sqlite, valkey (alias redis).
+    # - sqlite: local file-based store (single-node).
+    # - valkey/redis: external Valkey/Redis instance (shared / distributed).
+    backend: [string|oneof "sqlite","valkey","redis"|default "sqlite"]
+
+    # Maximum number of fingerprints to keep per source.
+    # Implemented as an LRU or similar eviction policy.
+    maxEntriesPerSource: [integer|default 50000]
+
+    # Default TTL (time-to-live) for fingerprints in seconds.
+    # Once a fingerprint's last-seen timestamp is older than TTL, it is eligible for cleanup.
+    # This controls how long duplicates are suppressed.
+    defaultTtlSeconds: [integer|default 86400]  # 24 hours
+
+    # Interval in seconds at which a background cleanup job runs to evict expired fingerprints.
+    cleanupIntervalSeconds: [integer|default 3600]  # 1 hour
+
+    # Number of retries when SQLite reports "database is locked" (applies to sqlite backend only).
+    lockRetries: [integer|default 5]
+
+    # Initial backoff in seconds between lock retries (doubles up to 1s).
+    lockBackoffSeconds: [float|default 0.1]
+
+    # SQLite backend configuration (used when backend: sqlite).
+    sqlite:
+      # Path to the SQLite database file that will store fingerprints.
+      # The file will be created if it does not exist.
+      path: [string|default "./scraper_fingerprints.db"]
+
+    # Valkey/Redis backend configuration (used when backend: valkey or redis).
+    valkey:
+      # Host name or IP.
+      host: [string|default "localhost"]
+      # Port.
+      port: [integer|default 6379]
+      # Database index.
+      db: [integer|default 0]
+      # Password for authentication. Leave empty for no auth.
+      password: [string|optional]
+      # Use SSL/TLS when connecting.
+      ssl: [boolean|default false]
+
+
+# APIs to be scraped.
+sources: [map]
+  - name: [string]   # Logical name of the API; also used as service name for telemetry.
+
+    # Frequency of scraping the API.
+    # Allowed suffix values are:
+    #   min or m - minutes
+    #   h        - hours
+    #   d        - days
+    #   w        - weeks
+    #   mon      - months (30-day)
+    # Example: "15min", "1h", "1d".
+    frequency: [string]
+
+    # Authentication configuration for this source.
+    # For APIs that do not require authentication, this field can be omitted.
+    auth: [map]
+
+      # Example of basic auth
+      # Authentication type.
+      type: basic
+      # Username to use when calling API. Variable name for username stored as an Environment Variable.
+      username: [string]
+      # Password to use when calling API. Variable name for password stored as an Environment Variable.
+      password: [string]
+
+      # Example of oauth (pre-configured static token read from Secrets Manager).
+      type: oauth
+      # Name of Variable name for oauth token as an Environment Variable.
+      token: [string]
+
+      # Example of oauth (token fetched at runtime).
+      type: oauth
+      # Username to use when calling API. Variable name for username stored as an Environment Variable.
+      username: [string]
+      # Password to use when calling API. Variable name for password stored as an Environment Variable.
+      password: [string]
+      # Endpoint to call when getting OAuth token.
+      getTokenEndpoint: [string]
+      # HTTP method for token fetch. Supported: GET, POST. Default POST.
+      getTokenMethod: [string|oneof "GET","POST"|default POST]
+      # Key in response which contains the token.
+      tokenKey: [string]
+      # Optional headers to send when fetching token.
+      tokenHeaders:
+        [string]: [string]
+      # Extra data to be sent as body to the get-token request. Optional.
+      bodyData: [map]
+        # Type of data to send. Supported types are "raw" and "json".
+        type: raw|json
+        # Data to attach. If type is json, the data must be passed as a map.
+        data: [map|string]
+          [when map]
+          [string]: [string]
+
+      # Example of apikey auth
+      type: apikey
+      # API key name to set in headers.
+      keyName: [string]
+      # Value to set for the API key header. Variable name for the API key stored as an Environment Variable.
+      keyValue: [string]
+
+      # Example of azuread auth
+      type: azuread
+      # Client id of the service principal. Variable name for client_id stored as an Environment Variable.
+      client_id: [string]
+      # Client secret of the service principal. Variable name for client_secret stored as an Environment Variable.
+      client_secret: [string]
+      # Azure token endpoint to call.
+      tokenEndpoint: [string]
+      # Azure resource to request token for.
+      resource: [string]
+
+    # Scraping configuration for the API.
+    scrape:
+      # Type of scrape. Supported values are:
+      #   range  - scrapes over a time period
+      #   instant - scrapes current state without an explicit time window
+      type: range
+
+      # HTTP method to use when calling the API.
+      # Supported values: GET, POST.
+      httpMethod: [string|default GET]
+
+      # Run a scrape when the service runs for the first time or the source is newly added to the config.
+      # Applies to both range and instant types.
+      runFirstScrape: [boolean|default false]
+
+      # Optional override of timestamp format for this source.
+      # If not set, scraper.defaultTimeFormat is used.
+      # This must be a valid Python datetime format string.
+      timeFormat: [string|optional]
+
+      # Maximum number of concurrent HTTP requests for this source.
+      # If not set, scraper.defaultSourceConcurrency is used.
+      maxConcurrency: [integer|optional]
+
+      # Optional configuration to split a larger time window into smaller sub-windows
+      # which can be scraped in parallel. Applies only to range scrapes.
+      parallelWindow:
+        # Unit of each sub-range. Supported values: minutes, hours, days.
+        unit: [string|optional]
+        # Size of each sub-range in the given unit.
+        # Example: unit: minutes, value: 30 → 30-minute sub-ranges.
+        value: [integer|optional]
+
+      # Parameters to use as range for the API (required for type: range, omitted for type: instant).
+     rangeKeys:
+        #### Example for APIs with start and end fields.
+
+        # Query parameter key for time period start for the API.
+        # The controller formats the start time using:
+        #   rangeKeys.dateFormat if set,
+        #   otherwise scrape.timeFormat if set,
+        #   otherwise scraper.defaultTimeFormat.
+        startKey: [string|optional]
+
+        # Query parameter key for time period end for the API.
+        # End time is formatted using the same rules as start time.
+        endKey: [string|optional]
+
+        # If historical data must be scraped at first run, start of the history time.
+        # This value is parsed using the same resolution order as above.
+        firstScrapeStart: [string|optional]
+
+        #### Example for APIs with one time frame field.
+
+        # Unit of time to be sent as query parameters (for relative windows).
+        # Supported values: minutes, hours, days, weeks, months.
+        unit: [string|optional]
+
+        # Value to be set for the time unit parameter.
+        # If the value must be determined based on frequency set for the datasource, set "from-config".
+        # Otherwise, set the desired value. Negative values are allowed.
+        value: [string|integer|default from-config]
+
+        # Convert the time unit value to negative if it is auto-determined from config.
+        takeNegative: [boolean|default false]
+
+        # Legacy override of timestamp format for this range only.
+        # If set, takes precedence over scrape.timeFormat and scraper.defaultTimeFormat.
+        dateFormat: [string|optional]
+
+      # URL encode the time values sent in query parameters for range type scrape.
+      # Defaults to false if not set.
+      urlEncodeTimeKeys: [boolean|default false]
+
+      # Headers to send to the API.
+      extraHeaders:
+        # Example:
+        # Content-Type: "application/x-www-form-urlencoded"
+        [string]: [string]
+
+      # Extra parameters to send to the API besides the startKey and endKey.
+      # For GET requests, parameters are added to the URL as query string.
+      # For POST requests, parameters are added to the request body as a JSON object.
+      # By default, parameters will be URL encoded in case of GET requests.
+      # To avoid URL encoding, pass as a map with the value under noEncodeValue.
+      extraArgs:
+        # Query parameter that will be URL encoded.
+        arg1: value1
+        # Query parameter that will not be URL encoded.
+        arg2:
+          noEncodeValue: "foobar,bob:alice"
+
+    # Endpoint path to scrape (appended to baseUrl).
+    endpoint: [string]
+
+    # API base URL.
+    baseUrl: [string]
+
+    # Whether this source may run overlapping scans; overrides scraper.allowOverlapScans if set.
+    allowOverlapScans: [boolean|default false]
+
+    # Control whether logs are emitted for this source. If false, logStatusField is ignored.
+    emitLogs: [boolean|default true]
+
+    # The key in the API response under which received data can be found.
+    # - Omit to treat the entire response as the data list (must be a list).
+    # - Use dot paths for nesting (e.g., "data.records").
+    # - List expansion: "field[].subfield" expands all list items; "field[0].subfield" selects an index;
+    #   ranges allowed: "field[1:3].subfield".
+    # - If the resolved value is a dict, it is wrapped into a list; primitives raise ShapeMismatch.
+    # - If any of the keys have a period in them, use "/." as the separator between keys.
+    dataKey: [string|optional]
+
+    # Optional filters applied to raw records AFTER dataKey extraction and BEFORE metrics/logs are generated.
+    # Can be used to drop noisy records, keep only interesting ones, and bound volume per scrape.
+    filters:
+      # Records that match ANY drop rule here are discarded.
+      drop:
+        - any:
+            # Each entry is a predicate on a record field.
+            # Name of the field in each record to inspect.
+          - field: [string]
+            # Matching condition to use. Supported values: equals, not_equals, in, regex.
+            matchType: [string]
+            # Single value or list of values to compare against, depending on matchType.
+            value: [string|integer|float|list]
+
+      # If keep is defined, then after drop rules are applied, only records that match
+      # at least one keep rule are retained.
+      keep:
+        - all:
+          - field: [string]
+            matchType: [string]
+            value: [string|integer|float|list]
+
+      # Limits applied per scrape cycle after drop/keep filters.
+      limits:
+        # Maximum number of records to keep per scrape for this source.
+        # If more records pass the filters, the extra ones are dropped.
+        maxRecordsPerScrape: [integer|optional]
+
+    # Delta detection configuration per source.
+    deltaDetection:
+      # Enable or disable delta detection for this source.
+      # When enabled, each record is fingerprinted and stored; subsequent scrapes will
+      # only emit records whose fingerprints have not been seen within the TTL window.
+      enabled: [boolean|default false]
+
+      # Controls how fingerprints are computed for this source.
+      # Supported values:
+      #   full_record - compute fingerprint from the entire record payload
+      #   keys        - compute fingerprint from a subset of fields
+      fingerprintMode: [string|oneof "full_record","keys"|default "full_record"]
+
+      # List of field paths used when fingerprintMode: keys.
+      # Field paths use the same semantics as dataKey/attributes (dot-separated, "/." for literal dot).
+      # Ignored when fingerprintMode: full_record.
+      fingerprintKeys: [list|string|optional]
+
+      # Override the default TTL just for this source.
+      # If not set, scraper.fingerprintStore.defaultTtlSeconds is used.
+      ttlSeconds: [integer|optional]
+
+      # Override the maximum number of fingerprints for this source.
+      # If not set, scraper.fingerprintStore.maxEntriesPerSource is used.
+      maxEntries: [integer|optional]
+
+    # Gauge metrics to be recorded from API data.
+    # Gauges represent the current value at scrape time (e.g., backlog size, last run duration).
+    # Omit if gauge metrics are not needed.
+    gaugeReadings:
+      - name: [string]        # Name of the metric, e.g. "integration_duration_ms".
+        # Either provide a dataKey OR a fixedValue. If both are set, fixedValue wins.
+        # The key in the API response whose data should be recorded as a gauge value.
+        # If the data key needs to be a field under the root of the response,
+        # it can be specified by using the "$root." prefix. Example: "$root.projectID".
+        dataKey: [string|optional]
+        # Optional fixed value to emit (float/int).
+        fixedValue: [number|optional]
+        # The unit of measurement. Supports all units supported by OpenTelemetry.
+        # Example: "milliseconds", "seconds", "bytes", "1" (dimensionless).
+        unit: [string|default "1"]
+        # Example of fixed-value gauge:
+        # - name: custom_measurement
+        #   fixedValue: 1
+        #   unit: "1"
+
+    # Counter metrics to be recorded from API data.
+    # Counters represent monotonically increasing counts (e.g., number of jobs, number of failures).
+    # For each record, the controller typically adds 1 to the counter, unless a valueKey is provided.
+    counterReadings:
+      - name: [string]        # Name of the metric, e.g. "jobs_total" or "failed_runs_total".
+        # Optional: key in the API response whose numeric value will be added to the counter.
+        # If omitted, each record contributes a value of 1.
+        # If the data key needs to be under the root, use "$root." prefix.
+        dataKey: [string|optional]
+        # Optional fixed value to emit (float/int). If set, overrides valueKey/implicit 1.
+        fixedValue: [number|optional]
+        # Optional: additional label dimensions extracted from the record (use attributes for shared labels).
+        labels:
+          - name: [string]      # Label name, e.g. "status" or "integration_system".
+            dataKey: [string]   # Field in the record used as label value.
+        # The unit of measurement. For pure counts, this is usually "1".
+        unit: [string|default "1"]
+
+    # Histogram metrics to be recorded from API data.
+    # Histograms capture the distribution of a numeric field (e.g., run duration, payload size).
+    histogramReadings:
+      - name: [string]         # Name of the metric, e.g. "run_duration_seconds".
+        # Key in the API response whose numeric value should be observed in the histogram.
+        # If the data key needs to be under the root, use "$root." prefix.
+        dataKey: [string|optional]
+        # Optional fixed value to emit (float/int). If set, overrides dataKey.
+        fixedValue: [number|optional]
+        # The unit of measurement. Example: "milliseconds", "seconds", "bytes".
+        unit: [string|default "1"]
+        # Explicit bucket boundaries for the histogram.
+        # Values must be sorted ascending and represent the upper bounds of each bucket.
+        # Example for seconds: [0.5, 1.0, 2.0, 5.0, 10.0].
+        buckets: [list|float]
+        # Optional: additional label dimensions extracted from the record (use attributes for shared labels).
+        labels:
+          - name: [string]      # Label name, e.g. "status".
+            dataKey: [string]   # Field in the record used as label value.
+
+    # Attributes to add to generated telemetry data. Leave empty if no attributes are to be added.
+    attributes:
+      - name: [string]     # Name of attribute to set.
+        # The key in the API response data which should be recorded as the attribute value.
+        # If the data key needs to be a field under the root of the response,
+        # it can be specified by using the "$root." prefix.
+        dataKey: [string]
+
+        # Optional: record this attribute as a metric as well.
+        asMetric:
+          # Optional: override metric name. If not set, the attribute name is used.
+          metricName: [string|optional]
+          # Mapping of attribute values and the corresponding metric values to record.
+          # Keys must be the exact attribute value and the value must be a number.
+          # Example: "YES": 1, "NO": 0.
+          valueMapping: [map]
+          # Optional unit for the metric. If not set, defaults to "1" (dimensionless).
+          unit: [string|default "1"]
+
+    # Data field in the API response based on whose value the log level for generated logs will be set.
+    # If not set or empty, all logs are generated as info messages.
+    logStatusField:
+      # Name of the key in API response whose value will be used.
+      name: [string]
+
+      # Configuration to determine info log messages.
+      info:
+        # Value for which logs will be generated as info.
+        value: [string|list]
+        # Matching condition to use. Supported values: equals, in.
+        # equals checks for strict match of the value with the data field.
+        # in checks if the value exists in the data field.
+        matchType: [string|default equals]
+
+      # Configuration to determine warning log messages.
+      warning:
+        value: [string|list]
+        matchType: [string|default equals]
+
+      # Optional configuration for error log messages.
+      error:
+        value: [string|list]
+        matchType: [string|default equals]

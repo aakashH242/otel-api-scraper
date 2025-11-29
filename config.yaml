@@ -21,33 +21,33 @@ scraper:
       path: "./scraper_fingerprints.db"
 
 sources:
-#  - name: JSON-Placeholder
-#    baseUrl: https://jsonplaceholder.typicode.com
-#    endpoint: /posts
-#    frequency: 1m
-#    deltaDetection:
-#      enabled: true
-#      fingerprintMode: keys
-#      fingerprintKeys:
-#        - userId
-#        - id
-#    scrape:
-#      type: instant
-#      extraHeaders:
-#        Accept: "application/json"
-#    counterReadings:
-#      - name: invoke_counts
-#        fixedValue: 1
-#      - name: sum_of_ids
-#        dataKey: id
-#        unit: "1"
-#    attributes:
-#      - name: user_id
-#        dataKey: userId
-#      - name: post_id
-#        dataKey: id
-#    emitLogs: true
-#    runFirstScrape: false
+  - name: JSON-Placeholder
+    baseUrl: https://jsonplaceholder.typicode.com
+    endpoint: /posts
+    frequency: 1m
+    deltaDetection:
+      enabled: true
+      fingerprintMode: keys
+      fingerprintKeys:
+        - userId
+        - id
+    scrape:
+      type: instant
+      extraHeaders:
+        Accept: "application/json"
+    counterReadings:
+      - name: invoke_counts
+        fixedValue: 1
+      - name: sum_of_ids
+        dataKey: id
+        unit: "1"
+    attributes:
+      - name: user_id
+        dataKey: userId
+      - name: post_id
+        dataKey: id
+    emitLogs: true
+    runFirstScrape: false
 
   - name: Dummy-JSON
     baseUrl: https://dummyjson.com
