@@ -30,6 +30,15 @@ uv run otel-api-scraper
 - Instant scrape with data nesting
 - Gauge and counter metrics
 
+**Config:**
+```yaml
+    auth:
+      type: basic
+      # These are ENVIRONMENT VARIABLE NAMES, not the actual credentials
+      username: API_USERNAME  # Reads from os.environ["API_USERNAME"]
+      password: API_PASSWORD  # Reads from os.environ["API_PASSWORD"]
+```
+
 **Quick Start:**
 ```bash
 export API_USERNAME="your-username"
@@ -51,6 +60,17 @@ uv run otel-api-scraper
 - Log severity mapping based on status
 - Delta detection
 
+**Config:**
+```yaml
+    auth:
+      type: apikey
+      # Header name that the API expects
+      keyName: "Authorization"
+      # Environment variable name containing the API key
+      # The actual value might be: "Bearer sk_live_xxxxx"
+      keyValue: STRIPE_API_KEY  # Reads from os.environ["STRIPE_API_KEY"]
+```
+
 **Quick Start:**
 ```bash
 export STRIPE_API_KEY="sk_live_xxxxxxxxxxxxx"
@@ -68,6 +88,14 @@ uv run otel-api-scraper
 - Pre-generated OAuth token from environment
 - Nested data extraction (user.login)
 - Delta detection with multiple keys
+
+**Config:**
+```yaml
+    auth:
+      type: oauth
+      # Environment variable name containing the OAuth token
+      token: GITHUB_TOKEN  # Reads from os.environ["GITHUB_TOKEN"]
+```
 
 **Quick Start:**
 ```bash
@@ -92,6 +120,34 @@ uv run otel-api-scraper
 - Advanced filtering (drop/keep rules)
 - Record limits per scrape
 - Status-to-metric mapping
+
+**Config:**
+```yaml
+    auth:
+      type: oauth
+      # Credentials for obtaining the token
+      username: OAUTH_CLIENT_ID      # Reads from os.environ["OAUTH_CLIENT_ID"]
+      password: OAUTH_CLIENT_SECRET  # Reads from os.environ["OAUTH_CLIENT_SECRET"]
+
+      # Token endpoint configuration
+      getTokenEndpoint: "https://auth.example.com/oauth/token"
+      getTokenMethod: "POST"
+
+      # The JSON key in the token response that contains the access token
+      tokenKey: "access_token"
+
+      # Optional headers to send when fetching the token
+      tokenHeaders:
+        Content-Type: "application/x-www-form-urlencoded"
+        Accept: "application/json"
+
+      # Optional body data to send with token request
+      bodyData:
+        type: json
+        data:
+          grant_type: "client_credentials"
+          scope: "read:events"
+```
 
 **Quick Start:**
 ```bash
@@ -120,6 +176,24 @@ uv run otel-api-scraper
 - Azure-specific token endpoint
 - Resource-based access control
 - Multiple examples in one file
+
+**Config:**
+```yaml
+    auth:
+      type: azuread
+      # Service principal credentials
+      client_id: AZURE_CLIENT_ID          # Reads from os.environ["AZURE_CLIENT_ID"]
+      client_secret: AZURE_CLIENT_SECRET  # Reads from os.environ["AZURE_CLIENT_SECRET"]
+
+      # Azure AD token endpoint
+      # Replace {tenant-id} with your actual Azure AD tenant ID
+      tokenEndpoint: "https://login.microsoftonline.com/{tenant-id}/oauth2/token"
+
+      # The resource you're requesting access to
+      # For Azure Resource Manager, use: https://management.azure.com/
+      # For Microsoft Graph, use: https://graph.microsoft.com/
+      resource: "https://management.azure.com/"
+```
 
 **Quick Start:**
 ```bash
