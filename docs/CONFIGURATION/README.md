@@ -192,7 +192,7 @@ The scraper validates your configuration on startup using Pydantic models. Commo
 ## Additional Resources
 
 - [**config.yaml.template**](../config.yaml.template) - Complete reference with all options defined
-- [**LOCAL TESTING/**](../LOCAL_TESTING) - Docker Compose setup for development
+- [**LOCAL TESTING/**](../LOCAL_TESTING/) - Docker Compose setup for development
 
 ## Support
 
