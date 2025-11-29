@@ -20,9 +20,9 @@ jobs:
       - name: Install uv
         run: pip install --no-cache-dir uv
       - name: Sync docs dependencies
-        run: uv sync --frozen
+        run: pip install ".[docs]"
       - name: Build docs
-        run: uv run mkdocs build --site-dir site
+        run: mkdocs build --strict --site-dir site
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
