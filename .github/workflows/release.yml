@@ -6,10 +6,11 @@ on:
       - main
 
 permissions:
-  contents: write      # release-please needs to open PRs / update tags
+  contents: write
   pull-requests: write
-  packages: write      # to push images to GHCR
+  packages: read
   id-token: write
+  actions: write
 
 env:
   REGISTRY: ghcr.io
