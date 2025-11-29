@@ -9,11 +9,11 @@ This document describes all configuration options for individual API sources und
 - [Core Source Settings](#core-source-settings)
 - [Authentication](#authentication)
 - [Scrape Configuration](#scrape-configuration)
-- [Data Extraction & Processing](#data-extraction--processing)
-- [Filters & Limits](#filters--limits)
+- [Data Extraction and Processing](#data-extraction-and-processing)
+- [Filters and Limits](#filters-and-limits)
 - [Delta Detection (Deduplication)](#delta-detection-deduplication)
 - [Metrics Configuration](#metrics-configuration)
-- [Attributes & Logs](#attributes--logs)
+- [Attributes and Logs](#attributes-and-logs)
 - [Complete Examples](#complete-examples)
 
 ---
@@ -293,7 +293,7 @@ scrape:
 
 ---
 
-## Data Extraction & Processing
+## Data Extraction and Processing
 
 ### `dataKey`
 - **Type**: `string`
@@ -320,7 +320,7 @@ scrape:
 
 ---
 
-## Filters & Limits
+## Filters and Limits
 
 Apply filters to reduce noise and limit data volume before metrics/logs are generated.
 
@@ -485,7 +485,7 @@ histogramReadings:
 
 ---
 
-## Attributes & Logs
+## Attributes and Logs
 
 ### `attributes`
 
@@ -726,7 +726,7 @@ sources:
 
 For comprehensive, working examples of specific configuration aspects, see these specialized directories:
 
-### 🔐 [Authentication Examples](./auth/)
+### 🔐 [Authentication Examples](auth/)
 Complete examples for all supported authentication methods:
 - **[No Authentication](auth/no-auth.yaml)** - Public APIs
 - **[Basic Auth](auth/basic-auth.yaml)** - Username/password authentication
@@ -741,7 +741,7 @@ Each example includes:
 - ✅ Real-world API examples
 - ✅ Security best practices
 
-### ⏱️ [Scrape Types Examples](./scrape-types/)
+### ⏱️ [Scrape Types Examples](scrape-types/)
 Comprehensive examples for both scrape types:
 - **[Range-Type Scraping](scrape-types/range-type.yaml)** - Time-window based data collection
 - **[Instant-Type Scraping](scrape-types/instant-type.yaml)** - Current state snapshots
@@ -752,7 +752,7 @@ Key differences explained:
 - Parallel window processing
 - Historical backfill patterns
 
-### 📊 [Measurement Types Examples](./measurements/)
+### 📊 [Measurement Types Examples](measurements/)
 Detailed examples for all three metric types:
 - **[Counter Metrics](measurements/counters.yaml)** - Monotonically increasing values
 - **[Histogram Metrics](measurements/histograms.yaml)** - Value distributions and percentiles

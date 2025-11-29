@@ -78,6 +78,12 @@ scraper:
     # Interval in seconds at which a background cleanup job runs to evict expired fingerprints.
     cleanupIntervalSeconds: [integer|default 3600]  # 1 hour
 
+    # Number of retries when SQLite reports "database is locked" (applies to sqlite backend only).
+    lockRetries: [integer|default 5]
+
+    # Initial backoff in seconds between lock retries (doubles up to 1s).
+    lockBackoffSeconds: [float|default 0.1]
+
     # SQLite backend configuration (used when backend: sqlite).
     sqlite:
       # Path to the SQLite database file that will store fingerprints.
@@ -104,11 +110,11 @@ sources: [map]
 
     # Frequency of scraping the API.
     # Allowed suffix values are:
-    #   min - minutes
-    #   h   - hours
-    #   d   - days
-    #   w   - weeks
-    #   m   - months
+    #   min or m - minutes
+    #   h        - hours
+    #   d        - days
+    #   w        - weeks
+    #   mon      - months (30-day)
     # Example: "15min", "1h", "1d".
     frequency: [string]
 
@@ -366,7 +372,7 @@ sources: [map]
         # Optional: key in the API response whose numeric value will be added to the counter.
         # If omitted, each record contributes a value of 1.
         # If the data key needs to be under the root, use "$root." prefix.
-        valueKey: [string|optional]
+        dataKey: [string|optional]
         # Optional fixed value to emit (float/int). If set, overrides valueKey/implicit 1.
         fixedValue: [number|optional]
         # Optional: additional label dimensions extracted from the record (use attributes for shared labels).

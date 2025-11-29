@@ -33,6 +33,63 @@ async def test_sqlite_state_store_roundtrip(tmp_path):
     await store.close()
 
 
+@pytest.mark.asyncio
+async def test_sqlite_state_store_retries_on_lock(monkeypatch):
+    import aiosqlite
+
+    class FakeDB:
+        def __init__(self):
+            self.calls = 0
+            self.committed = False
+
+        async def execute(self, sql, params):
+            self.calls += 1
+            if self.calls == 1:
+                raise aiosqlite.OperationalError("database is locked")
+            self.sql = sql
+            self.params = params
+
+        async def commit(self):
+            self.committed = True
+
+    fake_db = FakeDB()
+
+    async def fake_ensure(self):
+        return fake_db
+
+    store = SqliteStateStore("ignored.db")
+    monkeypatch.setattr(store, "_ensure", fake_ensure.__get__(store, SqliteStateStore))
+
+    when = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    await store.set_last_success("svc", when)
+
+    assert fake_db.calls == 2
+    assert fake_db.committed is True
+
+
+@pytest.mark.asyncio
+async def test_sqlite_state_store_raises_on_non_lock(monkeypatch):
+    import aiosqlite
+
+    class FakeDB:
+        async def execute(self, sql, params):
+            raise aiosqlite.OperationalError("other failure")
+
+        async def commit(self):
+            raise AssertionError("should not commit on failure")
+
+    store = SqliteStateStore("ignored.db", lock_retries=1)
+
+    async def fake_ensure(self):
+        return FakeDB()
+
+    monkeypatch.setattr(store, "_ensure", fake_ensure.__get__(store, SqliteStateStore))
+
+    when = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    with pytest.raises(aiosqlite.OperationalError):
+        await store.set_last_success("svc", when)
+
+
 class FakeValkey:
     def __init__(self, *args, **kwargs):
         self.data = {}
@@ -51,7 +108,12 @@ class FakeValkey:
 async def test_valkey_state_store_roundtrip(monkeypatch):
     import importlib
 
-    fake_module = type("M", (), {"Valkey": FakeValkey, "Redis": None})
+    class FakeValkeyWithPwd(FakeValkey):
+        def __init__(self, *args, password=None, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.pwd = password
+
+    fake_module = type("M", (), {"Valkey": FakeValkeyWithPwd, "Redis": None})
     real_import = importlib.import_module
 
     def fake_import_module(name, package=None):
@@ -60,10 +122,12 @@ async def test_valkey_state_store_roundtrip(monkeypatch):
         return real_import(name, package=package)
 
     monkeypatch.setattr("importlib.import_module", fake_import_module)
-    store = ValkeyStateStore(cfg.FingerprintStoreValkey())
+    monkeypatch.setenv("VALKEY_ENV_PWD", "supersecret")
+    store = ValkeyStateStore(cfg.FingerprintStoreValkey(password="VALKEY_ENV_PWD"))
     when = datetime(2025, 1, 1, tzinfo=timezone.utc)
     await store.set_last_success("svc", when)
     assert await store.get_last_success("svc") == when
+    assert store.client.pwd == "supersecret"
     await store.close()
 
 
@@ -101,6 +165,8 @@ async def test_valkey_state_store_bad_value(monkeypatch):
     # set invalid isoformat string
     store.client.data[store._key("svc")] = "not-a-date"
     assert await store.get_last_success("svc") is None
+    # missing key returns None (covers falsy branch)
+    assert await store.get_last_success("missing") is None
     await store.close()
 
 
@@ -120,3 +186,15 @@ def test_build_state_store_variants(monkeypatch, tmp_path):
     valkey_cfg = cfg.FingerprintStoreConfig(backend="valkey")
     store_valkey = build_state_store(valkey_cfg)
     assert isinstance(store_valkey, MemoryStateStore)
+
+    import types
+
+    other_cfg = types.SimpleNamespace(
+        backend="memory",
+        lockRetries=1,
+        lockBackoffSeconds=0.1,
+        sqlite=cfg.FingerprintStoreSqlite(path=":memory:"),
+        valkey=cfg.FingerprintStoreValkey(),
+    )
+    store_other = build_state_store(other_cfg)  # type: ignore[arg-type]
+    assert isinstance(store_other, MemoryStateStore)

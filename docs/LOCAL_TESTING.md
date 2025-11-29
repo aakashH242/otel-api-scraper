@@ -5,7 +5,7 @@ You can also adjust these values for your deployment needs.
 
 ## Prerequisites
 - Docker (or Podman) and docker-compose available on your PATH.
-- The scraper config ([`config.yaml`](../config.yaml)) should point to the local OTLP collector at `http://localhost:4317` (set `scraper.otelCollectorEndpoint` and `otelTransport: grpc`, or HTTP if you prefer).
+- The scraper config ([`config.yaml`](config.yaml)) should point to the local OTLP collector at `http://localhost:4317` (set `scraper.otelCollectorEndpoint` and `otelTransport: grpc`, or HTTP if you prefer).
 
 ## Stack Contents
 - **Grafana**: UI to inspect metrics/logs.
@@ -14,17 +14,17 @@ You can also adjust these values for your deployment needs.
 - **OTEL Collector**: Receives OTLP metrics/logs and forwards to Prometheus (via Prometheus scrape) and Loki.
 
 ## Quickstart
-1) Use the provided stack under `LOCAL TESTING/`:
-   - Compose: [`LOCAL TESTING/compose.yaml`](LOCAL%20TESTING/compose.yaml)
-   - Collector config: [`LOCAL TESTING/config/collector.yaml`](LOCAL%20TESTING/config/collector.yaml)
-   - Prometheus config: [`LOCAL TESTING/config/prometheus.yml`](LOCAL%20TESTING/config/prometheus.yml)
-   - Loki config: [`LOCAL TESTING/config/loki-config.yml`](LOCAL%20TESTING/config/loki-config.yml)
-   - Grafana datasources: [`LOCAL TESTING/config/grafana-datasources.yaml`](LOCAL%20TESTING/config/grafana-datasources.yaml)
-   - Grafana ini: [`LOCAL TESTING/config/grafana.ini`](LOCAL%20TESTING/config/grafana.ini)
+1) Use the provided stack under `LOCAL_TESTING/`:
+   - Compose: [`LOCAL_TESTING/compose.yaml`](LOCAL_TESTING/compose.yaml)
+   - Collector config: [`LOCAL_TESTING/config/collector.yaml`](LOCAL_TESTING/config/collector.yaml)
+   - Prometheus config: [`LOCAL_TESTING/config/prometheus.yml`](LOCAL_TESTING/config/prometheus.yml)
+   - Loki config: [`LOCAL_TESTING/config/loki-config.yml`](LOCAL_TESTING/config/loki-config.yml)
+   - Grafana datasources: [`LOCAL_TESTING/config/grafana-datasources.yaml`](LOCAL_TESTING/config/grafana-datasources.yaml)
+   - Grafana ini: [`LOCAL_TESTING/config/grafana.ini`](LOCAL_TESTING/config/grafana.ini)
 
 2) Start the observability stack:
    ```bash
-   docker-compose -f "LOCAL TESTING/compose.yaml" up -d
+   docker-compose -f "LOCAL_TESTING/compose.yaml" up -d
    ```
 
 ## Running the Scraper
@@ -36,10 +36,10 @@ Please ensure you set the OTLP endpoint in the config to http://otel-collector:4
 
 ```bash
 # Start everything including the scraper
-docker-compose -f "LOCAL TESTING/compose.yaml" up -d
+docker-compose -f "LOCAL_TESTING/compose.yaml" up -d
 
 # View scraper logs
-docker-compose -f "LOCAL TESTING/compose.yaml" logs -f scraper
+docker-compose -f "LOCAL_TESTING/compose.yaml" logs -f scraper
 ```
 
 **Network access**: The scraper can use `http://otel-collector:4318` or `http://otel-collector:4317`
@@ -91,5 +91,5 @@ SCRAPER_CONFIG=./config.yaml uv run otel-api-scraper
 
 ## Cleanup
 ```
-docker-compose -f "LOCAL TESTING/compose.yaml" down -v
+docker-compose -f "LOCAL_TESTING/compose.yaml" down -v
 ```

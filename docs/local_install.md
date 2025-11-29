@@ -231,12 +231,3 @@ curl -v http://localhost:4318/  # If using HTTP
 ## Next Steps
 
 - **Read the [Configuration Guide](CONFIGURATION/README.md)** for detailed configuration options
-
----
-
-## Development Setup
-
-If you're contributing to API2OTEL, see [CONTRIBUTING.md](../CONTRIBUTING.md) for additional requirements like:
-- Pre-commit hook installation
-- Running tests and coverage checks
-- Conventional commit message format

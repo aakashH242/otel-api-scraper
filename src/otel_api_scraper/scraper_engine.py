@@ -64,7 +64,7 @@ class ScraperEngine:
         api_type = source.scrape.type
         try:
             last_success = await self.state_store.get_last_success(source.name)
-            if last_success is None and not source.scrape.runFirstScrape:
+            if last_success is None and not source.runFirstScrape:
                 await self.state_store.set_last_success(source.name, start_time)
                 logger.info(
                     "Skipping initial scrape for %s (runFirstScrape=false); recorded now as last_success",
@@ -83,7 +83,7 @@ class ScraperEngine:
                         logger.debug(
                             "Fetching window %s for source %s", window, source.name
                         )
-                        records = await self._fetch_window(
+                        records, raw_payload = await self._fetch_window(
                             source, window, auth_strategy
                         )
                         logger.debug(
@@ -93,30 +93,33 @@ class ScraperEngine:
                             window,
                         )
                         processed = await self.pipeline.run(records, source)
-                        return processed, False
+                        return processed, False, raw_payload
                     except ShapeMismatch as exc:
                         logger.error(
                             "Shape mismatch for source %s: %s", source.name, exc
                         )
-                        return [], True
+                        return [], True, None
                     except Exception as exc:
                         logger.exception(
                             "Error scraping source %s: %s", source.name, exc
                         )
-                        return [], True
+                        return [], True, None
 
             results = await asyncio.gather(*[run_window(w) for w in windows])
             had_errors = False
+            telemetry_batches: List[Tuple[List[dict[str, Any]], Any]] = []
             for chunk in results:
-                if isinstance(chunk, tuple):
-                    records, errored = chunk
+                if isinstance(chunk, tuple) and len(chunk) == 3:
+                    records, errored, raw_payload = chunk
                     had_errors = had_errors or errored
-                    all_records.extend(records)
-                else:
+                    if records:
+                        all_records.extend(records)
+                        telemetry_batches.append((records, raw_payload))
+                else:  # pragma: no cover - defensive
                     all_records.extend(chunk)
             status = "error" if had_errors else "success"
-            if all_records:
-                await self._emit_telemetry_async(source, all_records)
+            if telemetry_batches:
+                await self._emit_telemetry_async(source, telemetry_batches)
             else:
                 logger.debug(
                     "No records to emit for source %s after filters/dedup", source.name
@@ -147,24 +150,27 @@ class ScraperEngine:
             )
 
     async def _emit_telemetry_async(
-        self, source: cfg.SourceConfig, records: List[dict[str, Any]]
+        self,
+        source: cfg.SourceConfig,
+        batches: List[Tuple[List[dict[str, Any]], Any]],
     ) -> None:
         """Emit metrics/logs in background tasks to avoid blocking scrapes."""
         loop = asyncio.get_running_loop()
 
         async def emit():
-            try:
-                self.telemetry.emit_metrics(source, records)
-            except Exception as exc:
-                logger.warning(
-                    "Metric emission failed for source %s: %s", source.name, exc
-                )
-            try:
-                self.telemetry.emit_logs(source, records)
-            except Exception as exc:
-                logger.warning(
-                    "Log emission failed for source %s: %s", source.name, exc
-                )
+            for records, raw_payload in batches:
+                try:
+                    self.telemetry.emit_metrics(source, records, raw_payload)
+                except Exception as exc:
+                    logger.warning(
+                        "Metric emission failed for source %s: %s", source.name, exc
+                    )
+                try:
+                    self.telemetry.emit_logs(source, records, raw_payload)
+                except Exception as exc:
+                    logger.warning(
+                        "Log emission failed for source %s: %s", source.name, exc
+                    )
 
         task = loop.create_task(emit())
         self.telemetry._emit_tasks.add(task)
@@ -209,12 +215,34 @@ class ScraperEngine:
             return timedelta(days=value)
         raise ValueError(f"Unsupported parallelWindow unit {unit}")
 
+    def _uses_root_payload(self, source: cfg.SourceConfig) -> bool:
+        """Return True if any metric/log config references $root.* paths."""
+
+        def needs_root(path: str | None) -> bool:
+            return isinstance(path, str) and path.startswith("$root.")
+
+        for gauge in source.gaugeReadings:
+            if needs_root(gauge.dataKey):
+                return True
+        for counter in source.counterReadings:
+            if needs_root(counter.dataKey):
+                return True
+        for hist in source.histogramReadings:
+            if needs_root(hist.dataKey):
+                return True
+        for attr in source.attributes:
+            if needs_root(attr.dataKey):
+                return True
+        if source.logStatusField and needs_root(source.logStatusField.name):
+            return True
+        return False
+
     async def _fetch_window(
         self,
         source: cfg.SourceConfig,
         window: Tuple[datetime, datetime] | None,
         auth_strategy: AuthStrategy | None,
-    ) -> List[dict[str, Any]]:
+    ) -> Tuple[List[dict[str, Any]], Any]:
         """Fetch data for a given window from the source API."""
         url = self.http_client.build_url(source.baseUrl, source.endpoint)
         scrape_cfg = source.scrape
@@ -256,11 +284,6 @@ class ScraperEngine:
                         derived = -abs(derived)
                     value = derived
                 params["value"] = value
-                second_first = getattr(rk, "secondFirstScrapeStart", None)
-                if second_first and not await self.state_store.get_last_success(
-                    source.name
-                ):
-                    params["from"] = second_first
 
         for key, val in scrape_cfg.extraArgs.items():
             if isinstance(val, dict) and "noEncodeValue" in val:
@@ -281,7 +304,9 @@ class ScraperEngine:
             )
         response.raise_for_status()
         payload = response.json()
-        return extract_records(payload, source.dataKey)
+        if self._uses_root_payload(source) and not isinstance(payload, dict):
+            raise ShapeMismatch("Root-scoped lookups require an object payload")
+        return extract_records(payload, source.dataKey), payload
 
     def _unit_seconds(self, unit: str | None) -> int:
         """Return number of seconds for a relative unit."""

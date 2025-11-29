@@ -33,10 +33,11 @@ def test_utc_now_and_ensure_aware():
 
 def test_parse_frequency_units_and_invalid():
     assert parse_frequency("5min") == timedelta(minutes=5)
+    assert parse_frequency("2m") == timedelta(minutes=2)
     assert parse_frequency("2h") == timedelta(hours=2)
     assert parse_frequency("1d") == timedelta(days=1)
     assert parse_frequency("1w") == timedelta(weeks=1)
-    assert parse_frequency("2m") == timedelta(days=60)
+    assert parse_frequency("2mon") == timedelta(days=60)
     with pytest.raises(ValueError):
         parse_frequency("bad")
 
@@ -56,9 +57,21 @@ def test_parse_and_format_datetime():
 def test_split_key_and_lookup_path():
     assert split_key(None) == []
     assert split_key("a.b/.c") == ["a", "b.c"]
+    assert split_key(".a") == [
+        "a"
+    ]  # leading dot produces empty segment that is skipped
+    from otel_api_scraper.utils import _parse_data_path
+
+    assert _parse_data_path(".a") == [("a", None)]
     data = {"a": {"b.c": {"d": 1}}, "plain": 2}
     assert lookup_path(data, "a.b/.c.d") == 1
-    assert lookup_path(data, "$root.plain") == 2
+    # When supplied, root context is used for $root.* even if record lacks the field.
+    record = {"nested": {"x": 1}}
+    raw_payload = {"limit": 10}
+    assert lookup_path(record, "$root.limit", root=raw_payload) == 10
+    with pytest.raises(ShapeMismatch):
+        lookup_path(record, "$root.limit")
+    assert lookup_path(data, "$root.plain", root=data) == 2
     assert lookup_path(data, "missing.path") is None
 
 
@@ -116,6 +129,29 @@ def test_extract_records_root_errors():
         extract_records({"a": 1}, None)
     with pytest.raises(ShapeMismatch):
         extract_records(123, None)
+
+
+def test_extract_records_edge_cases():
+    # selector expects list but gets non-list
+    with pytest.raises(ShapeMismatch):
+        extract_records({"a": {"b": 1}}, "a[].c")
+    # index out of bounds raises
+    with pytest.raises(ShapeMismatch):
+        extract_records({"a": [1]}, "a[5]")
+    # missing key returns empty list
+    assert extract_records({"a": [{"b": 1}]}, "a[].missing") == []
+    # list of non-dicts at end raises
+    with pytest.raises(ShapeMismatch):
+        extract_records({"a": [[1, 2]]}, "a")
+    # non-dict final element raises
+    with pytest.raises(ShapeMismatch):
+        extract_records({"a": [1]}, "a")
+    # when no dataKey and payload is list, it is returned
+    assert extract_records([{"a": 1}], None) == [{"a": 1}]
+    # non-dict intermediate results are skipped leading to empty
+    assert extract_records(["abc"], "missing") == []
+    with pytest.raises(ShapeMismatch):
+        extract_records({"a": {"b": 1}}, "a.b")
 
 
 def test_extract_records_happy_paths_and_slices():

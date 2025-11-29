@@ -239,7 +239,7 @@ Error: Invalid resource
 - [Main Configuration Docs](../../README.md)
 - [Source Configuration Reference](../README.md)
 - [Global Configuration Reference](../../global/README.md)
-- [config.yaml.template](../../../../config.yaml.template)
+- [config.yaml.template](../../../config.yaml.template)
 
 ## Contributing
 

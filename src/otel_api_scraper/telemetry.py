@@ -21,13 +21,12 @@ from opentelemetry.exporter.otlp.proto.http.metric_exporter import (
 from opentelemetry.exporter.otlp.proto.http._log_exporter import (
     OTLPLogExporter as HttpLogExporter,
 )
-from opentelemetry.metrics import CallbackOptions, Observation
 from opentelemetry.sdk._logs import LoggerProvider
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import Resource
-from opentelemetry.semconv.resource import ResourceAttributes
+from opentelemetry.semconv.attributes import service_attributes
 
 try:
     from opentelemetry._logs.severity import SeverityNumber  # type: ignore
@@ -53,10 +52,10 @@ class TelemetrySink:
 
 
 class GaugeAggregator:
-    """Stores the most recent gauge values for observable gauges."""
+    """Stores the most recent gauge values for synchronous gauges."""
 
     def __init__(self, meter, name: str, unit: str):
-        """Create an observable gauge aggregator.
+        """Create a synchronous gauge aggregator.
 
         Args:
             meter: OTEL meter instance.
@@ -64,19 +63,16 @@ class GaugeAggregator:
             unit: Gauge unit.
         """
         self.values: List[Tuple[float, Dict[str, Any]]] = []
-        self.gauge = meter.create_observable_gauge(
+        self.gauge = meter.create_gauge(
             name=name,
-            callbacks=[self._callback],
             unit=unit,
         )
 
     def set_values(self, values: List[Tuple[float, Dict[str, Any]]]) -> None:
-        """Update cached gauge values."""
+        """Set gauge values (last-write wins per attribute set)."""
         self.values = values
-
-    def _callback(self, options: CallbackOptions):
-        """APIs called by OTEL when collecting gauge data."""
-        return [Observation(value=v, attributes=attrs) for v, attrs in self.values]
+        for value, attrs in values:
+            self.gauge.set(value, attributes=attrs)
 
 
 class Telemetry:
@@ -92,7 +88,7 @@ class Telemetry:
         self.dry_run = config.dryRun
         self.resource = Resource(
             attributes={
-                ResourceAttributes.SERVICE_NAME: config.serviceName,
+                service_attributes.SERVICE_NAME: config.serviceName,
             }
         )
         self.sink = TelemetrySink()
@@ -180,7 +176,10 @@ class Telemetry:
         return self.gauges[key]
 
     def emit_metrics(
-        self, source: cfg.SourceConfig, records: List[Dict[str, Any]]
+        self,
+        source: cfg.SourceConfig,
+        records: List[Dict[str, Any]],
+        raw_payload: Any | None = None,
     ) -> None:
         """Emit metrics for a source based on configured mappings."""
         if self.dry_run:
@@ -196,7 +195,7 @@ class Telemetry:
                     val = (
                         gauge_def.fixedValue
                         if gauge_def.fixedValue is not None
-                        else lookup_path(record, gauge_def.dataKey)
+                        else lookup_path(record, gauge_def.dataKey, root=raw_payload)
                     )
                     if val is None:
                         continue
@@ -204,7 +203,9 @@ class Telemetry:
                         numeric_val = float(val)
                     except Exception:
                         continue
-                    attrs = self._record_attributes(record, source)
+                    attrs = self._record_attributes(
+                        record, source, raw_payload=raw_payload
+                    )
                     values.append((numeric_val, attrs))
                 agg = self._gauge(source.name, gauge_def.name, gauge_def.unit)
                 agg.set_values(values)
@@ -216,8 +217,8 @@ class Telemetry:
                         counter_def.fixedValue
                         if counter_def.fixedValue is not None
                         else (
-                            lookup_path(record, counter_def.valueKey)
-                            if counter_def.valueKey
+                            lookup_path(record, counter_def.dataKey, root=raw_payload)
+                            if counter_def.dataKey
                             else 1
                         )
                     )
@@ -225,7 +226,9 @@ class Telemetry:
                         amount = float(amount)
                     except Exception:
                         amount = 1
-                    attrs = self._record_attributes(record, source, None)
+                    attrs = self._record_attributes(
+                        record, source, None, raw_payload=raw_payload
+                    )
                     counter.add(amount, attributes=attrs)
 
             for hist_def in source.histogramReadings:
@@ -234,7 +237,7 @@ class Telemetry:
                     val = (
                         hist_def.fixedValue
                         if hist_def.fixedValue is not None
-                        else lookup_path(record, hist_def.dataKey)
+                        else lookup_path(record, hist_def.dataKey, root=raw_payload)
                     )
                     if val is None:
                         continue
@@ -242,17 +245,22 @@ class Telemetry:
                         val = float(val)
                     except Exception:
                         continue
-                    attrs = self._record_attributes(record, source, None)
+                    attrs = self._record_attributes(
+                        record, source, None, raw_payload=raw_payload
+                    )
                     hist.record(val, attributes=attrs)
 
-            self._emit_attribute_metrics(source, records)
+            self._emit_attribute_metrics(source, records, raw_payload=raw_payload)
             logger.debug("Metrics emitted for source %s", source.name)
             self._force_flush_metrics()
         except Exception as exc:
             logger.warning("Metric emission failed for source %s: %s", source.name, exc)
 
     def _emit_attribute_metrics(
-        self, source: cfg.SourceConfig, records: List[Dict[str, Any]]
+        self,
+        source: cfg.SourceConfig,
+        records: List[Dict[str, Any]],
+        raw_payload: Any | None = None,
     ) -> None:
         """Emit optional attribute-derived metrics."""
         for attr in source.attributes:
@@ -262,7 +270,7 @@ class Telemetry:
             counter = self._counter(source.name, metric_name, attr.asMetric.unit)
             mapping = attr.asMetric.valueMapping
             for record in records:
-                val = lookup_path(record, attr.dataKey)
+                val = lookup_path(record, attr.dataKey, root=raw_payload)
                 mapped = mapping.get(str(val))
                 if mapped is None:
                     continue
@@ -272,7 +280,10 @@ class Telemetry:
         logger.debug("Completed attribute metric emission for source %s", source.name)
 
     def emit_logs(
-        self, source: cfg.SourceConfig, records: List[Dict[str, Any]]
+        self,
+        source: cfg.SourceConfig,
+        records: List[Dict[str, Any]],
+        raw_payload: Any | None = None,
     ) -> None:
         """Emit logs for a source."""
         if not source.emitLogs:
@@ -291,9 +302,9 @@ class Telemetry:
             timestamp = int(time.time() * 1e9)
             for record in records:
                 severity, severity_text = self._resolve_severity(
-                    record, source.logStatusField
+                    record, source.logStatusField, raw_payload=raw_payload
                 )
-                attrs = self._record_attributes(record, source)
+                attrs = self._record_attributes(record, source, raw_payload=raw_payload)
                 body = {"source": source.name, "record": record}
 
                 # Use Logger.emit(...) instead of constructing LogRecord directly
@@ -451,27 +462,31 @@ class Telemetry:
         record: Dict[str, Any],
         source: cfg.SourceConfig,
         extra_labels: List[cfg.MetricLabel] | None = None,
+        raw_payload: Any | None = None,
     ) -> Dict[str, Any]:
         """Build OTEL attributes from configured attributes and labels."""
         attrs = {"source": source.name}
         for attr in source.attributes:
-            val = lookup_path(record, attr.dataKey)
+            val = lookup_path(record, attr.dataKey, root=raw_payload)
             if val is not None:
                 attrs[attr.name] = val
         if extra_labels:
             for label in extra_labels:
-                val = lookup_path(record, label.dataKey)
+                val = lookup_path(record, label.dataKey, root=raw_payload)
                 if val is not None:
                     attrs[label.name] = val
         return attrs
 
     def _resolve_severity(
-        self, record: Dict[str, Any], field_cfg: cfg.LogStatusField | None
+        self,
+        record: Dict[str, Any],
+        field_cfg: cfg.LogStatusField | None,
+        raw_payload: Any | None = None,
     ) -> Tuple[SeverityNumber, str]:
         """Derive log severity from record and logStatusField config."""
         if not field_cfg:
             return SeverityNumber.INFO, "INFO"
-        status_val = lookup_path(record, field_cfg.name)
+        status_val = lookup_path(record, field_cfg.name, root=raw_payload)
         if field_cfg.error and matches(
             field_cfg.error.matchType, status_val, field_cfg.error.value
         ):

@@ -193,13 +193,4 @@ Monitor the scraper itself—not just the data it extracts.
 └──────────────────────────────────────────────────┘
 ```
 
-## 📚 Next Steps
-
-- **[Getting Started Locally](local_install.md)** – Installation and first run
-- **[Configuration Guide](getting-started/configuration.md)** – Full config reference
-- **[Architecture](internals/architecture.md)** – Deep dive into how it works
-- **[Contributing](meta/contributing.md)** – Help improve API2OTEL
-
----
-
 **Ready to turn your APIs into observable signals?** Let's go! 🚀
