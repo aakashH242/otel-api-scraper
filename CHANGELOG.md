@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/aakashH242/otel-api-scraper/compare/v0.6.0...v0.6.1) (2025-11-29)
+
+
+### Documentation
+
+* change theme colors ([#16](https://github.com/aakashH242/otel-api-scraper/issues/16)) ([75c6690](https://github.com/aakashH242/otel-api-scraper/commit/75c66904a7e02a5f09d97b4c9940d082e96bb3c2))
+
 ## [0.6.0](https://github.com/aakashH242/otel-api-scraper/compare/v0.5.0...v0.6.0) (2025-11-29)
 
 
