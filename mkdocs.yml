@@ -12,18 +12,18 @@ use_directory_urls: true
 theme:
   name: material
   language: en
-  logo: logo.svg
+  logo: logo.png
   favicon: logo.png
   palette:
     - scheme: slate
-      primary: deep purple
-      accent: indigo
+      primary: black
+      accent: light green
       toggle:
         icon: material/weather-sunny
         name: Switch to light mode
     - scheme: default
-      primary: indigo
-      accent: deep purple
+      primary: black
+      accent: blue
       toggle:
         icon: material/weather-night
         name: Switch to dark mode
