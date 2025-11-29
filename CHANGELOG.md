@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/aakashH242/otel-api-scraper/compare/v0.5.0...v0.6.0) (2025-11-29)
+
+
+### Features
+
+* doc publish fix ([#14](https://github.com/aakashH242/otel-api-scraper/issues/14)) ([4edbdcd](https://github.com/aakashH242/otel-api-scraper/commit/4edbdcdd60ac845b91c960d6ef590f9a9cdceee1))
+
 ## [0.5.0](https://github.com/aakashH242/otel-api-scraper/compare/v0.4.0...v0.5.0) (2025-11-29)
 
 
