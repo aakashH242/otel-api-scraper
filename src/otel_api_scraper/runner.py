@@ -125,7 +125,7 @@ async def async_main(config_path: str) -> None:
         admin_server_task = asyncio.create_task(admin_server.serve())
 
         # Fail fast if admin API cannot bind.
-        def _handle_server_error(task: asyncio.Task) -> None:
+        def _handle_server_error(task: asyncio.Task) -> None:  # pragma: no cover
             exc = task.exception()
             if exc:
                 logging.getLogger(__name__).error("Admin API failed to start: %s", exc)
@@ -171,5 +171,5 @@ def main() -> None:
         raise
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - CLI entrypoint
     main()
