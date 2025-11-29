@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from datetime import datetime
@@ -50,7 +51,7 @@ class MemoryStateStore(StateStore):
 class SqliteStateStore(StateStore):
     """SQLite-backed store for last-success timestamps."""
 
-    def __init__(self, path: str):
+    def __init__(self, path: str, lock_retries: int = 5, lock_backoff: float = 0.1):
         """Create sqlite state store.
 
         Args:
@@ -58,6 +59,8 @@ class SqliteStateStore(StateStore):
         """
         self.path = path
         self._db: Optional[aiosqlite.Connection] = None
+        self.lock_retries = lock_retries
+        self.lock_backoff = lock_backoff
 
     async def _ensure(self) -> aiosqlite.Connection:
         """Ensure database exists with expected schema."""
@@ -86,14 +89,30 @@ class SqliteStateStore(StateStore):
             return datetime.fromisoformat(row[0])
 
     async def set_last_success(self, source: str, when: datetime) -> None:
-        """Persist last success timestamp for a source."""
+        """Persist last success timestamp for a source with simple retry on lock."""
         db = await self._ensure()
         ts = ensure_aware(when).isoformat()
-        await db.execute(
-            "INSERT INTO last_success(source, timestamp) VALUES (?, ?) ON CONFLICT(source) DO UPDATE SET timestamp=excluded.timestamp",
-            (source, ts),
-        )
-        await db.commit()
+        attempts = max(1, self.lock_retries)
+        delay = self.lock_backoff
+        for attempt in range(1, attempts + 1):
+            try:
+                await db.execute(
+                    "INSERT INTO last_success(source, timestamp) VALUES (?, ?) ON CONFLICT(source) DO UPDATE SET timestamp=excluded.timestamp",
+                    (source, ts),
+                )
+                await db.commit()
+                return
+            except aiosqlite.OperationalError as exc:
+                if "locked" in str(exc).lower() and attempt < attempts:
+                    logger.warning(
+                        "Sqlite locked on set_last_success (attempt %s/%s); retrying",
+                        attempt,
+                        attempts,
+                    )
+                    await asyncio.sleep(delay)
+                    delay = min(delay * 2, 1.0)
+                    continue
+                raise
 
     async def close(self) -> None:
         """Close database connection."""
@@ -162,7 +181,11 @@ def build_state_store(store_cfg: cfg.FingerprintStoreConfig) -> StateStore:
     """Create state store using same backend as fingerprints."""
     backend = store_cfg.backend
     if backend == "sqlite":
-        return SqliteStateStore(store_cfg.sqlite.path)
+        return SqliteStateStore(
+            store_cfg.sqlite.path,
+            lock_retries=store_cfg.lockRetries,
+            lock_backoff=store_cfg.lockBackoffSeconds,
+        )
     if backend in {"valkey", "redis"}:
         try:
             return ValkeyStateStore(store_cfg.valkey)

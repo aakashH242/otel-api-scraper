@@ -93,7 +93,13 @@ class MemoryFingerprintStore(FingerprintStore):
 class SqliteFingerprintStore(FingerprintStore):
     """SQLite-backed fingerprint store."""
 
-    def __init__(self, path: str, max_entries: int):
+    def __init__(
+        self,
+        path: str,
+        max_entries: int,
+        lock_retries: int = 5,
+        lock_backoff: float = 0.1,
+    ):
         """Create a sqlite-backed fingerprint store.
 
         Args:
@@ -104,6 +110,8 @@ class SqliteFingerprintStore(FingerprintStore):
         self.max_entries = max_entries
         self._db: Optional[aiosqlite.Connection] = None
         self._lock = asyncio.Lock()
+        self.lock_retries = lock_retries
+        self.lock_backoff = lock_backoff
 
     async def _ensure(self) -> aiosqlite.Connection:
         """Ensure the database is initialized."""
@@ -140,11 +148,12 @@ class SqliteFingerprintStore(FingerprintStore):
                 last_seen, row_ttl = row
                 effective_ttl = row_ttl or ttl_seconds
                 if now - last_seen > effective_ttl:
-                    await db.execute(
+                    await self._execute_with_retry(
+                        db,
                         "DELETE FROM fingerprints WHERE hash=? AND source=?",
                         (fp_hash, source),
+                        commit=True,
                     )
-                    await db.commit()
                     logger.debug(
                         "FP expired (sqlite) source=%s hash=%s", source, fp_hash
                     )
@@ -157,15 +166,16 @@ class SqliteFingerprintStore(FingerprintStore):
         db = await self._ensure()
         now = int(utc_now().timestamp())
         async with self._lock:
-            await db.execute(
+            await self._execute_with_retry(
+                db,
                 """
                 INSERT INTO fingerprints(hash, source, first_seen, last_seen, ttl)
                 VALUES (?, ?, ?, ?, ?)
                 ON CONFLICT(hash, source) DO UPDATE SET last_seen=excluded.last_seen, ttl=excluded.ttl
                 """,
                 (fp_hash, source, now, now, ttl_seconds),
+                commit=True,
             )
-            await db.commit()
             logger.debug("FP touch (sqlite) source=%s hash=%s", source, fp_hash)
             await self._enforce_capacity(db, source)
 
@@ -178,7 +188,8 @@ class SqliteFingerprintStore(FingerprintStore):
             row = await cursor.fetchone()
             if row and row[0] > self.max_entries:
                 overflow = row[0] - self.max_entries
-                await db.execute(
+                await self._execute_with_retry(
+                    db,
                     """
                     DELETE FROM fingerprints
                     WHERE hash IN (
@@ -189,17 +200,19 @@ class SqliteFingerprintStore(FingerprintStore):
                     ) AND source=?
                     """,
                     (source, overflow, source),
+                    commit=True,
                 )
-                await db.commit()
 
     async def cleanup(self) -> None:
         db = await self._ensure()
         now = int(utc_now().timestamp())
         async with self._lock:
-            await db.execute(
-                "DELETE FROM fingerprints WHERE last_seen + ttl < ?", (now,)
+            await self._execute_with_retry(
+                db,
+                "DELETE FROM fingerprints WHERE last_seen + ttl < ?",
+                (now,),
+                commit=True,
             )
-            await db.commit()
             logger.debug(
                 "FP cleanup (sqlite) removed expired entries older than %s", now
             )
@@ -216,8 +229,31 @@ class SqliteFingerprintStore(FingerprintStore):
         async with self._lock:
             placeholders = ",".join("?" for _ in active_sources) or "''"
             sql = f"DELETE FROM fingerprints WHERE source NOT IN ({placeholders})"
-            await db.execute(sql, tuple(active_sources))
-            await db.commit()
+            await self._execute_with_retry(db, sql, tuple(active_sources), commit=True)
+
+    async def _execute_with_retry(
+        self, db: aiosqlite.Connection, sql: str, params: tuple, commit: bool = False
+    ) -> None:
+        """Execute a statement with simple lock retry."""
+        attempts = max(1, self.lock_retries)
+        delay = self.lock_backoff
+        for attempt in range(1, attempts + 1):
+            try:
+                await db.execute(sql, params)
+                if commit:
+                    await db.commit()
+                return
+            except aiosqlite.OperationalError as exc:
+                if "locked" in str(exc).lower() and attempt < attempts:
+                    logger.warning(
+                        "Sqlite locked during fingerprint op (attempt %s/%s); retrying",
+                        attempt,
+                        attempts,
+                    )
+                    await asyncio.sleep(delay)
+                    delay = min(delay * 2, 1.0)
+                    continue
+                raise
 
 
 class ValkeyFingerprintStore(FingerprintStore):
@@ -369,7 +405,10 @@ def build_store(store_cfg: cfg.FingerprintStoreConfig) -> FingerprintStore:
     backend = store_cfg.backend
     if backend == "sqlite":
         return SqliteFingerprintStore(
-            store_cfg.sqlite.path, store_cfg.maxEntriesPerSource
+            store_cfg.sqlite.path,
+            store_cfg.maxEntriesPerSource,
+            lock_retries=store_cfg.lockRetries,
+            lock_backoff=store_cfg.lockBackoffSeconds,
         )
     if backend == "valkey" or backend == "redis":
         try:

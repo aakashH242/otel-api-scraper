@@ -19,7 +19,8 @@ dependencies = [
     "valkey>=6.0.0",
     "fastapi>=0.115,<0.116",
     "uvicorn[standard]>=0.32,<0.33",
-    "python-dateutil>=2.9.0"
+    "python-dateutil>=2.9.0",
+    "aiosqlite==0.21.0"
 ]
 
 [project.optional-dependencies]

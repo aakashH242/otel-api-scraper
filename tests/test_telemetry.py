@@ -5,7 +5,6 @@ import pytest
 
 from otel_api_scraper import config as cfg
 from otel_api_scraper.telemetry import (
-    CallbackOptions,
     GaugeAggregator,
     Telemetry,
     TelemetrySink,
@@ -43,11 +42,8 @@ class FakeGauge:
     def __init__(self):
         self.values = []
 
-    def set_values(self, values):
-        self.values = values
-
-    def __call__(self, *args, **kwargs):
-        return self
+    def set(self, value, attributes=None):
+        self.values.append((value, attributes or {}))
 
 
 class FakeMeter:
@@ -68,7 +64,13 @@ class FakeMeter:
 
     def create_observable_gauge(self, name, callbacks, unit):
         g = FakeGauge()
-        self.gauges[name] = (g, callbacks)
+        self.gauges[name] = g
+        return g
+
+    # Support synchronous gauges for compatibility
+    def create_gauge(self, name, unit, description=None):
+        g = FakeGauge()
+        self.gauges[name] = g
         return g
 
 
@@ -161,7 +163,7 @@ def test_emit_metrics_non_dry_run(monkeypatch):
     t = telemetry_with_fakes(dry_run=False)
     src = make_source()
     src.gaugeReadings = [cfg.GaugeReading(name="g", dataKey="v", unit="1")]
-    src.counterReadings = [cfg.CounterReading(name="c", valueKey="cval", unit="1")]
+    src.counterReadings = [cfg.CounterReading(name="c", dataKey="cval", unit="1")]
     src.histogramReadings = [
         cfg.HistogramReading(name="h", dataKey="hval", unit="ms", buckets=[1.0])
     ]
@@ -190,7 +192,7 @@ def test_emit_metrics_handles_missing_and_bad_values():
     t = telemetry_with_fakes(dry_run=False)
     src = make_source()
     src.gaugeReadings = [cfg.GaugeReading(name="g", dataKey="missing", unit="1")]
-    src.counterReadings = [cfg.CounterReading(name="c", valueKey="bad", unit="1")]
+    src.counterReadings = [cfg.CounterReading(name="c", dataKey="bad", unit="1")]
     src.histogramReadings = [
         cfg.HistogramReading(name="h", dataKey="strval", unit="ms", buckets=[1.0])
     ]
@@ -335,8 +337,7 @@ def test_sink_and_gauge_callback(caplog):
     fake_meter = FakeMeter()
     agg = GaugeAggregator(fake_meter, "g", "1")
     agg.set_values([(1.0, {"a": "b"})])
-    obs = agg._callback(CallbackOptions())
-    assert obs[0].value == 1.0
+    assert agg.values[0][0] == 1.0
 
 
 def test_get_logger_dry_run(monkeypatch):
@@ -348,7 +349,11 @@ def test_get_logger_dry_run(monkeypatch):
 def test_emit_metrics_error_branches(monkeypatch, caplog):
     caplog.set_level("WARNING")
     t = telemetry_with_fakes(dry_run=False)
-    t._force_flush_metrics = lambda: (_ for _ in ()).throw(RuntimeError("flush error"))
+
+    def bad_flush():
+        raise RuntimeError("flush error")
+
+    t._force_flush_metrics = bad_flush
     src = make_source()
     src.gaugeReadings = [cfg.GaugeReading(name="g", dataKey="bad", unit="1")]
     src.histogramReadings = [

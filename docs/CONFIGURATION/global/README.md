@@ -6,16 +6,16 @@ This document describes all global-level configuration options under the `scrape
 ---
 
 ## Table of Contents
-- [Telemetry & Observability](#telemetry--observability)
+- [Telemetry and Observability](#telemetry-and-observability)
 - [Service Configuration](#service-configuration)
-- [Time & Formatting](#time--formatting)
+- [Time and Formatting](#time-and-formatting)
 - [Concurrency Control](#concurrency-control)
 - [Fingerprint Store (Delta Detection)](#fingerprint-store-delta-detection)
 - [Source-Level Overrides](#source-level-overrides)
 
 ---
 
-## Telemetry & Observability
+## Telemetry and Observability
 
 ### `enableSelfTelemetry`
 - **Type**: `boolean`
@@ -107,7 +107,7 @@ This document describes all global-level configuration options under the `scrape
 
 ---
 
-## Time & Formatting
+## Time and Formatting
 
 ### `defaultTimeFormat`
 - **Type**: `string` (Python `strftime` format)
@@ -181,6 +181,20 @@ The fingerprint store is used for delta detection - preventing duplicate records
 - **Source Override**: ❌ No
 - **Description**: How often the background cleanup job runs to remove expired fingerprints.
 - **Use Case**: Lower values = more frequent cleanup (less storage) but more overhead. Adjust based on your TTL and data volume.
+
+### `fingerprintStore.lockRetries`
+- **Type**: `integer`
+- **Default**: `5`
+- **Source Override**: ❌ No
+- **Description**: Number of retries when SQLite reports "database is locked" (applies to sqlite backend only). This helps prevent failures when multiple processes access the database concurrently.
+- **Use Case**: Increase this value if you experience lock contention with SQLite. Set to 0 to disable retries.
+
+### `fingerprintStore.lockBackoffSeconds`
+- **Type**: `float`
+- **Default**: `0.1` (100ms)
+- **Source Override**: ❌ No
+- **Description**: Initial backoff in seconds between lock retries. The backoff doubles exponentially up to 1 second maximum.
+- **Use Case**: Adjust this if you need to tune retry timing. Lower values retry faster, higher values reduce CPU spinning.
 
 ### `fingerprintStore.sqlite.path`
 - **Type**: `string`

@@ -48,7 +48,7 @@ nav:
       - Docker Compose: LOCAL_TESTING.md
       - Configuration: CONFIGURATION/README.md
   - Configuration:
-      - Global Settings: CONFIGURATION/globals/README.md
+      - Global Settings: CONFIGURATION/global/README.md
       - Source Specific Settings:
           - Overview: CONFIGURATION/sources/README.md
           - Auth Settings: CONFIGURATION/sources/auth/README.md

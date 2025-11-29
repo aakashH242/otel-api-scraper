@@ -125,7 +125,6 @@ class ScrapeConfig(BaseModel):
 
     type: Literal["range", "instant"]
     httpMethod: Literal["GET", "POST"] = "GET"
-    runFirstScrape: bool = False
     timeFormat: Optional[str] = None
     maxConcurrency: Optional[int] = None
     parallelWindow: Optional[ParallelWindow] = None
@@ -231,7 +230,7 @@ class CounterReading(BaseModel):
     """Counter metric mapping."""
 
     name: str
-    valueKey: Optional[str] = None
+    dataKey: Optional[str] = None
     fixedValue: Optional[float] = None
     unit: str = "1"
 
@@ -309,7 +308,7 @@ class SourceConfig(BaseModel):
     histogramReadings: List[HistogramReading] = Field(default_factory=list)
     attributes: List[AttributeConfig] = Field(default_factory=list)
     logStatusField: Optional[LogStatusField] = None
-
+    runFirstScrape: bool = False
     model_config = ConfigDict(extra="forbid")
 
 
@@ -340,6 +339,8 @@ class FingerprintStoreConfig(BaseModel):
     maxEntriesPerSource: int = 50000
     defaultTtlSeconds: int = 86400
     cleanupIntervalSeconds: int = 3600
+    lockRetries: int = 5
+    lockBackoffSeconds: float = 0.1
     sqlite: FingerprintStoreSqlite = Field(default_factory=FingerprintStoreSqlite)
     valkey: FingerprintStoreValkey = Field(default_factory=FingerprintStoreValkey)
     redis: Optional[FingerprintStoreValkey] = None

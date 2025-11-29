@@ -3,7 +3,7 @@
 # 🔌 API2OTEL (otel-api-scraper) – Any API → 📊 OTEL metrics & logs ✨
 
 <p align="center">
-  <img src="logo.png" alt="API2OTEL Logo" width="250"/>
+  <img src="docs/logo.png" alt="API2OTEL Logo" width="250"/>
 </p>
 
 ![Release](https://img.shields.io/github/v/release/aakashH242/otel-api-scraper?sort=semver)
@@ -179,7 +179,7 @@ Get the scraper + OTEL collector + Prometheus + Grafana + Loki running in one co
 
 1. **Start the full stack**
    ```bash
-   cd "LOCAL TESTING"
+   cd "docs/LOCAL_TESTING"
    docker-compose up -d
    ```
 
@@ -206,7 +206,7 @@ Get the scraper + OTEL collector + Prometheus + Grafana + Loki running in one co
    docker-compose down -v
    ```
 
-For more details, see [LOCAL_TESTING.md](docs/LOCAL_TESTING.md) and [LOCAL TESTING/](docs/LOCAL%20TESTING/) config directory.
+For more details, see [LOCAL_TESTING.md](docs/LOCAL_TESTING.md) and [LOCAL TESTING/](docs/LOCAL_TESTING/) config directory.
 
 ## Admin API
 

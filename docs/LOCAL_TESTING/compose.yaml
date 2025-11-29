@@ -1,11 +1,9 @@
 
 services:
   scraper:
-    build:
-      context: ../..
-      dockerfile: ../../Dockerfile
+    image: ghcr.io/aakashh242/otel-api-scraper:latest
     volumes:
-      - ../config.yaml:/app/config.yaml
+      - ../config.yaml:/app/config.yaml # Or, point to your actual config.yaml
     depends_on:
       - otel-collector
     networks:

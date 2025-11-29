@@ -47,7 +47,7 @@ async def test_scrape_source_skips_initial_when_run_first_false(monkeypatch):
     http = MagicMock()
     engine = ScraperEngine(app_cfg(), http, pipeline, telemetry, state_store)
     src = make_source()
-    src.scrape.runFirstScrape = False
+    src.runFirstScrape = False
 
     await engine.scrape_source(src)
 
@@ -61,26 +61,54 @@ async def test_scrape_source_success_and_error_paths(monkeypatch):
     monkeypatch.setattr("otel_api_scraper.scraper_engine.utc_now", lambda: now)
     state_store = AsyncMock()
     state_store.get_last_success.return_value = now - timedelta(minutes=5)
-    pipeline = AsyncMock()
-    pipeline.run.side_effect = [ShapeMismatch("bad"), [{"id": 2}]]
-    telemetry = MagicMock()
-    telemetry.record_self_scrape = MagicMock()
-    telemetry.record_dedupe = MagicMock()
-    telemetry.emit_metrics = MagicMock()
-    telemetry.emit_logs = MagicMock()
-    telemetry._emit_tasks = set()
+
+    class StubPipeline:
+        def __init__(self):
+            self.calls = 0
+            self.last_stats = {"hits": 1, "misses": 1, "total": 2}
+
+        async def run(self, *_):
+            self.calls += 1
+            if self.calls == 1:
+                raise ShapeMismatch("bad")
+            return [{"id": 2}]
+
+    class StubTelemetry:
+        def __init__(self):
+            self.record_self_scrape = MagicMock()
+            self.record_dedupe = MagicMock()
+            self.emit_metrics = MagicMock()
+            self.emit_logs = MagicMock()
+            self._emit_tasks: set = set()
+            self.calls = 0
+
+    telemetry = StubTelemetry()
     http = MagicMock()
-    engine = ScraperEngine(app_cfg(), http, pipeline, telemetry, state_store)
+    engine = ScraperEngine(app_cfg(), http, StubPipeline(), telemetry, state_store)
     src = make_source()
+
     # Avoid actual fetch/telemetry by patching
-    engine._compute_windows = AsyncMock(return_value=[None, None])
-    engine._fetch_window = AsyncMock(side_effect=[[{"id": 1}], [{"id": 2}]])
-    engine._emit_telemetry_async = AsyncMock()
+    async def compute(*_, **__):
+        return [None, None]
+
+    async def fetch(*_, **__):
+        fetch.calls += 1
+        return [{"id": fetch.calls}], {"root": fetch.calls}
+
+    fetch.calls = 0
+    emit_called = {"count": 0}
+
+    async def emit_async(*_, **__):
+        emit_called["count"] += 1
+
+    engine._compute_windows = compute
+    engine._fetch_window = fetch
+    engine._emit_telemetry_async = emit_async
 
     await engine.scrape_source(src)
 
-    assert engine._fetch_window.await_count == 2
-    engine._emit_telemetry_async.assert_awaited_once()
+    assert fetch.calls == 2
+    assert emit_called["count"] == 1
     telemetry.record_self_scrape.assert_called_once()
     args, kwargs = telemetry.record_self_scrape.call_args
     assert (
@@ -180,13 +208,14 @@ async def test_fetch_window_get_with_raw_params(monkeypatch):
     auth.headers = AsyncMock(return_value={"Authorization": "Bearer t"})
 
     now = datetime.now(timezone.utc)
-    records = await engine._fetch_window(src, (now, now), auth)
+    records, payload = await engine._fetch_window(src, (now, now), auth)
 
     http.request.assert_awaited_once()
     assert "Bearer t" in http.request.await_args.kwargs["headers"].get(
         "Authorization", "Bearer t"
     )
     assert records == {"data": []}
+    assert payload == {"data": []}
 
 
 @pytest.mark.asyncio
@@ -212,10 +241,11 @@ async def test_fetch_window_post_with_params(monkeypatch):
     engine = ScraperEngine(app_cfg(), http, pipeline, telemetry, state_store)
 
     now = datetime.now(timezone.utc)
-    records = await engine._fetch_window(src, (now, now), None)
+    records, payload = await engine._fetch_window(src, (now, now), None)
 
     http.request.assert_awaited_once()
     assert records == [1]
+    assert payload == {"items": [1]}
 
 
 @pytest.mark.asyncio
@@ -245,9 +275,6 @@ async def test_fetch_window_relative_from_config_and_take_negative(monkeypatch):
     )
 
     rk = cfg.RangeKeys(unit="minutes", value="from-config", takeNegative=True)
-    object.__setattr__(
-        rk, "secondFirstScrapeStart", "mark"
-    )  # inject optional attr for branch coverage
     src = make_source(scrape_type="range", range_keys=rk, url_encode=False)
     engine = ScraperEngine(app_cfg(), http, pipeline, telemetry, state_store)
 
@@ -256,60 +283,168 @@ async def test_fetch_window_relative_from_config_and_take_negative(monkeypatch):
 
     assert captured_params["value"] < 0
     http.request.assert_awaited_once()
-    state_store.get_last_success.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_fetch_window_root_payload_requires_dict(monkeypatch):
+    http = MagicMock()
+    http.build_url.return_value = "https://api.example.com/items"
+    response = MagicMock()
+    response.raise_for_status = MagicMock()
+    response.json.return_value = ["not-a-dict"]
+    http.request = AsyncMock(return_value=response)
+    pipeline = MagicMock()
+    telemetry = MagicMock()
+    state_store = MagicMock()
+
+    src = make_source()
+    src.gaugeReadings = [cfg.GaugeReading(name="g", dataKey="$root.limit")]
+    engine = ScraperEngine(app_cfg(), http, pipeline, telemetry, state_store)
+
+    now = datetime.now(timezone.utc)
+    with pytest.raises(ShapeMismatch):
+        await engine._fetch_window(src, (now, now), None)
+
+
+@pytest.mark.asyncio
+async def test_uses_root_payload_detection():
+    engine = ScraperEngine(app_cfg(), None, None, None, None)  # type: ignore[arg-type]
+    src = make_source()
+    assert engine._uses_root_payload(src) is False
+
+    src.counterReadings = [cfg.CounterReading(name="c", dataKey="$root.cnt")]
+    assert engine._uses_root_payload(src) is True
+    src.counterReadings = []
+
+    src.histogramReadings = [
+        cfg.HistogramReading(name="h", dataKey="$root.hist", unit="ms", buckets=[1.0])
+    ]
+    assert engine._uses_root_payload(src) is True
+    src.histogramReadings = []
+
+    src.attributes = [cfg.AttributeConfig(name="attr", dataKey="$root.attr")]
+    assert engine._uses_root_payload(src) is True
+    src.attributes = []
+
+    src.logStatusField = cfg.LogStatusField(name="$root.status")
+    assert engine._uses_root_payload(src) is True
 
 
 @pytest.mark.asyncio
 async def test_scrape_source_handles_generic_exception(monkeypatch):
-    state_store = AsyncMock()
-    state_store.get_last_success.return_value = datetime.now(timezone.utc)
-    pipeline = AsyncMock()
-    telemetry = MagicMock()
-    telemetry.record_self_scrape = MagicMock()
-    telemetry.record_dedupe = MagicMock()
-    telemetry._emit_tasks = set()
+    class StubState:
+        def __init__(self):
+            self.set_called = False
+
+        async def get_last_success(self, *_):
+            return datetime.now(timezone.utc)
+
+        async def set_last_success(self, *_):
+            self.set_called = True
+
+    class StubTelemetry:
+        def __init__(self):
+            self.self_called = False
+            self.dedupe_called = False
+            self._emit_tasks = set()
+
+        def record_self_scrape(self, *_, **__):
+            self.self_called = True
+
+        def record_dedupe(self, *_, **__):
+            self.dedupe_called = True
+
+    class StubPipeline:
+        last_stats = {"hits": 0, "misses": 0, "total": 0}
+
+        async def run(self, *_):
+            return []
+
     http = MagicMock()
-    engine = ScraperEngine(app_cfg(), http, pipeline, telemetry, state_store)
+    telemetry = StubTelemetry()
+    state_store = StubState()
+    engine = ScraperEngine(app_cfg(), http, StubPipeline(), telemetry, state_store)
     src = make_source()
 
-    engine._compute_windows = AsyncMock(return_value=[None])
-    engine._fetch_window = AsyncMock(side_effect=Exception("boom"))
-    engine._emit_telemetry_async = AsyncMock()
+    async def windows(*_, **__):
+        return [None]
+
+    engine._compute_windows = windows
+
+    async def boom(*_, **__):
+        raise Exception("boom")
+
+    engine._fetch_window = boom
+    emit_called = {"count": 0}
+
+    async def emit_async(*_, **__):
+        emit_called["count"] += 1
+        return None
+
+    engine._emit_telemetry_async = emit_async
 
     await engine.scrape_source(src)
 
-    telemetry.record_self_scrape.assert_called()
-    telemetry.record_dedupe.assert_called()
-    engine._emit_telemetry_async.assert_not_awaited()
+    assert telemetry.self_called is True
+    assert telemetry.dedupe_called is True
+    assert emit_called["count"] == 0
 
 
 @pytest.mark.asyncio
 async def test_scrape_source_accepts_non_tuple_results(monkeypatch):
-    state_store = AsyncMock()
-    state_store.get_last_success.return_value = datetime.now(timezone.utc)
-    pipeline = AsyncMock()
-    telemetry = MagicMock()
-    telemetry.record_self_scrape = MagicMock()
-    telemetry.record_dedupe = MagicMock()
-    telemetry._emit_tasks = set()
+    class StubState:
+        async def get_last_success(self, *_):
+            return datetime.now(timezone.utc)
+
+        async def set_last_success(self, *_):
+            return None
+
+    class StubPipeline:
+        last_stats = {"hits": 0, "misses": 0, "total": 0}
+
+        async def run(self, records, source):
+            return records
+
+    class StubTelemetry:
+        def __init__(self):
+            self.record_self_scrape = MagicMock()
+            self.record_dedupe = MagicMock()
+            self._emit_tasks: set = set()
+
     http = MagicMock()
-    engine = ScraperEngine(app_cfg(), http, pipeline, telemetry, state_store)
+    engine = ScraperEngine(
+        app_cfg(), http, StubPipeline(), StubTelemetry(), StubState()
+    )
     src = make_source()
 
     async def fake_gather(*coros, **kwargs):
         for coro in coros:
             await coro
-        return [[{"id": 1}]]
+        return [([{"id": 1}], False, {"root": "r"})]
 
     monkeypatch.setattr("otel_api_scraper.scraper_engine.asyncio.gather", fake_gather)
-    engine._compute_windows = AsyncMock(return_value=[None])
-    engine._fetch_window = AsyncMock(return_value=[{"id": 1}])
-    engine._emit_telemetry_async = AsyncMock()
+
+    async def compute(*_, **__):
+        return [None]
+
+    async def fetch(*_, **__):
+        fetch.calls += 1
+        return [{"id": 1}], {"root": "r"}
+
+    fetch.calls = 0
+    emit_called = {"count": 0}
+
+    async def emit_async(*_, **__):
+        emit_called["count"] += 1
+
+    engine._compute_windows = compute
+    engine._fetch_window = fetch
+    engine._emit_telemetry_async = emit_async
 
     await engine.scrape_source(src)
 
-    engine._emit_telemetry_async.assert_awaited_once()
-    telemetry.record_dedupe.assert_called()
+    assert emit_called["count"] == 1
+    engine.telemetry.record_dedupe.assert_called()
 
 
 @pytest.mark.asyncio
@@ -323,7 +458,7 @@ async def test_emit_telemetry_async_handles_errors(monkeypatch, caplog):
     src = make_source()
     records = [{"id": 1}]
 
-    await engine._emit_telemetry_async(src, records)
+    await engine._emit_telemetry_async(src, [(records, {"root": "r"})])
     await asyncio.gather(*list(telemetry._emit_tasks))
     await asyncio.sleep(0)  # allow callback to discard
 
