@@ -188,12 +188,12 @@ api_requests_total{service_name="user-api", status="degraded", region="eu-west-1
 
 ## Common Patterns
 
-### Pattern 1: Range with Daily Backfill
+### Pattern 1: Range with Initial Backfill
 ```yaml
+runFirstScrape: true
 scrape:
   type: range
   frequency: "1h"
-  runFirstScrape: true
   rangeKeys:
     startKey: "start_date"
     endKey: "end_date"
@@ -205,10 +205,10 @@ scrape:
 
 ### Pattern 2: Instant with Delta Detection
 ```yaml
+runFirstScrape: true
 scrape:
   type: instant
   frequency: "1min"
-  runFirstScrape: true
 
 deltaDetection:
   enabled: true
@@ -217,29 +217,6 @@ deltaDetection:
     - id
     - status
   ttlSeconds: 300  # Re-emit after 5 minutes even if unchanged
-```
-
-### Pattern 3: Range with Relative Window
-```yaml
-scrape:
-  type: range
-  frequency: "15min"
-  rangeKeys:
-    unit: minutes
-    value: 15          # Last 15 minutes
-    takeNegative: true # Make it -15
-```
-
-### Pattern 4: High-Frequency Instant Monitoring
-```yaml
-scrape:
-  type: instant
-  frequency: "10s"  # Every 10 seconds
-  runFirstScrape: true
-
-# Disable delta detection to get all data every time
-deltaDetection:
-  enabled: false
 ```
 
 ---
@@ -315,8 +292,7 @@ Logs what would be emitted without sending to OTEL collector.
 
 ### 2. Use runFirstScrape
 ```yaml
-scrape:
-  runFirstScrape: true
+runFirstScrape: true
 ```
 Get immediate feedback when starting the scraper.
 
@@ -369,4 +345,3 @@ Both examples in this directory demonstrate:
 - ✅ Comments showing resulting metrics
 
 Copy and adapt these examples to your specific API needs!
-
