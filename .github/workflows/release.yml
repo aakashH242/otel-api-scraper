@@ -61,3 +61,15 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.release.outputs.tag_name }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+      - name: Trigger docs publish on release
+        if: steps.release.outputs.release_created == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'docs-publish.yml',
+              ref: context.ref
+            })
