@@ -181,6 +181,57 @@ def test_main_re_raises_other_errors(monkeypatch):
         runner.main()
 
 
+@pytest.mark.asyncio
+async def test_admin_api_done_callback_raises(monkeypatch, caplog):
+    caplog.set_level(logging.ERROR)
+    app_config = minimal_app_config(enable_admin=True)
+    app_config.scraper.adminSecretEnv = "ADMIN_SECRET"
+    monkeypatch.setenv("ADMIN_SECRET", "secret")
+
+    # configure dependencies
+    admin_app = object()
+    monkeypatch.setattr(runner, "load_config", lambda path: app_config)
+    monkeypatch.setattr(runner, "build_store", lambda cfg_obj: AsyncMock())
+    monkeypatch.setattr(runner, "build_state_store", lambda cfg_obj: AsyncMock())
+    monkeypatch.setattr(runner, "RecordPipeline", lambda store, cfg_obj: MagicMock())
+    mock_telemetry = AsyncMock()
+    mock_telemetry.record_cleanup = MagicMock()
+    monkeypatch.setattr(runner, "Telemetry", lambda cfg_obj: mock_telemetry)
+    monkeypatch.setattr(
+        runner, "AsyncHttpClient", lambda max_conc, enforce_tls: AsyncMock()
+    )
+    monkeypatch.setattr(runner, "ScraperEngine", lambda *args, **kwargs: MagicMock())
+    mock_scheduler = MagicMock()
+    mock_scheduler.run_all_once = AsyncMock()
+    mock_scheduler.shutdown = AsyncMock()
+    mock_scheduler.start = MagicMock()
+    monkeypatch.setattr(
+        runner, "ScraperScheduler", lambda *args, **kwargs: mock_scheduler
+    )
+
+    async def fake_cleanup(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(runner, "_cleanup_loop", fake_cleanup)
+    monkeypatch.setattr(
+        runner.asyncio, "sleep", AsyncMock(side_effect=asyncio.CancelledError())
+    )
+
+    class FakeServer:
+        async def serve(self):
+            return None
+
+    class FakeConfig:
+        def __init__(self, *_, **__):
+            pass
+
+    monkeypatch.setattr(runner, "build_admin_app", lambda *args, **kwargs: admin_app)
+    monkeypatch.setattr(runner.uvicorn, "Config", FakeConfig)
+    monkeypatch.setattr(runner.uvicorn, "Server", lambda cfg: FakeServer())
+
+    await runner.async_main("config.yaml")
+
+
 def test_main_loads_dotenv(monkeypatch, tmp_path):
     called = {}
 
