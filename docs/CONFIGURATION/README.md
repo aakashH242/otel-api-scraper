@@ -176,8 +176,7 @@ The scraper validates your configuration on startup using Pydantic models. Commo
    ```yaml
    sources:
      - name: "test-api"
-       scrape:
-         runFirstScrape: true
+       runFirstScrape: true
    ```
    Runs immediately on startup for testing.
 
