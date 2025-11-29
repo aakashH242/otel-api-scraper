@@ -261,8 +261,7 @@ sources:
    ```yaml
    sources:
      - name: "my-api"
-       scrape:
-         runFirstScrape: true
+       runFirstScrape: true
    ```
 
 ## Security Best Practices

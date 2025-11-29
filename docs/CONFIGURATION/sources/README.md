@@ -80,6 +80,12 @@ This document describes all configuration options for individual API sources und
 - **Description**: Controls whether log records are generated for this source. If `false`, only metrics are emitted (logs are suppressed).
 - **Use Case**: Disable if you only care about metrics or if the API returns too much data for logging.
 
+
+### `runFirstScrape`
+- **Type**: `boolean`
+- **Default**: `false`
+- **Description**: If `true`, runs a scrape immediately when the scraper starts or when this source is newly added. Otherwise, waits for the first scheduled interval.
+- **Use Case**: Enable to get initial data immediately on startup.
 ---
 
 ## Authentication
@@ -186,12 +192,6 @@ The `scrape` section controls **how** and **when** the API is called.
 - **Options**: `GET`, `POST`
 - **Description**: HTTP method to use for the API request.
 - **Use Case**: Most APIs use `GET`. Use `POST` if the API requires it (e.g., complex queries in body).
-
-### `scrape.runFirstScrape`
-- **Type**: `boolean`
-- **Default**: `false`
-- **Description**: If `true`, runs a scrape immediately when the scraper starts or when this source is newly added. Otherwise, waits for the first scheduled interval.
-- **Use Case**: Enable to get initial data immediately on startup.
 
 ### `scrape.timeFormat`
 - **Type**: `string` (Python `strftime` format)
@@ -545,10 +545,9 @@ sources:
     baseUrl: "https://jsonplaceholder.typicode.com"
     endpoint: "/posts"
     frequency: "5min"
-    
+    runFirstScrape: true  
     scrape:
       type: instant
-      runFirstScrape: true
     
     counterReadings:
       - name: "posts_total"
@@ -569,7 +568,7 @@ sources:
     baseUrl: "https://api.stripe.com"
     endpoint: "/v1/charges"
     frequency: "15min"
-    
+    runFirstScrape: true  
     auth:
       type: apikey
       keyName: "Authorization"
@@ -578,7 +577,7 @@ sources:
     scrape:
       type: range
       timeFormat: "%s"  # Unix timestamp
-      runFirstScrape: true
+
       rangeKeys:
         startKey: "created[gte]"
         endKey: "created[lte]"
@@ -620,10 +619,11 @@ sources:
       username: WORKDAY_USER
       password: WORKDAY_PASS
     
+    runFirstScrape: true
+    
     scrape:
       type: range
       httpMethod: GET
-      runFirstScrape: true
       timeFormat: "%Y-%m-%dT%H:%M:%S-00:00"
       maxConcurrency: 8
       parallelWindow:
