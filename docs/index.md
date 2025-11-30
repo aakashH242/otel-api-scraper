@@ -55,16 +55,21 @@ API2OTEL is a config-driven async service that:
 ### 🔧 Config-Driven Scraping
 
 Declare every source in YAML with:
+
 - Frequency (5min, 1h, 1d, …)
 - Scrape mode (range with start/end or relative windows; instant snapshots)
 - Time formats (global + per-source)
 - Query params (time keys, extra args, URL encoding rules)
 
 Add/change sources by editing config—no code changes required.
+Full config explained: https://github.com/aakashH242/otel-api-scraper/blob/main/config.yaml.template
+
+![Download Config Template](./config.yaml.template)
 
 ### 🔐 Rich Authentication Strategies
 
 Built-in auth support:
+
 - **Basic Auth**: Username/password via environment variables
 - **API Key Headers**: Static or environment-sourced keys (e.g., `X-API-Key`)
 - **OAuth**: Static token or runtime fetch with configurable HTTP GET/POST body and response parsing
@@ -127,6 +132,7 @@ Tokens are fetched asynchronously and reused per source.
 ### Sources
 
 A **source** is a single API endpoint to scrape. Each source:
+
 - Has a **name** and **frequency** (how often to poll)
 - Uses an **auth strategy** (or none)
 - Defines **scrape mode** (instant or range-based)
@@ -141,6 +147,7 @@ A **source** is a single API endpoint to scrape. Each source:
 ### Fingerprinting & Deduplication
 
 Each record is **fingerprinted** (MD5 hash). On scrape:
+
 1. Extract records from API
 2. Pass through filters (drop/keep rules)
 3. Check fingerprint store: **hit** = skip (seen before), **miss** = emit
@@ -151,6 +158,7 @@ Prevents duplicate metrics while enabling historical backfills.
 ### Self-Telemetry
 
 When enabled, API2OTEL emits its **own metrics** about scraping health:
+
 - Scrape duration and success/error rates
 - Deduplication hit/miss rates
 - Cleanup job performance
@@ -162,7 +170,7 @@ Monitor the scraper itself—not just the data it extracts.
 ```
 ┌──────────────────────────────────────────────────┐
 │          Configuration (YAML)                    │
-│  - Sources, auth, metrics, filters, attributes  │
+│  - Sources, auth, metrics, filters, attributes   │
 └──────────────────────────────────────────────────┘
                        ↓
 ┌──────────────────────────────────────────────────┐

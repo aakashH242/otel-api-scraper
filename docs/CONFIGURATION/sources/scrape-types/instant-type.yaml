@@ -111,13 +111,13 @@ sources:
       # Total requests processed since service start
       # Labels: service_name, region, environment (from attributes)
       - name: "service_requests_total"
-        valueKey: "total_requests"
+        dataKey: "total_requests"
         unit: "1"
 
       # Total errors encountered
       # Labels: service_name, error_category (from attributes)
       - name: "service_errors_total"
-        valueKey: "total_errors"
+        dataKey: "total_errors"
         unit: "1"
 
       # Count of services by status

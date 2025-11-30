@@ -2,10 +2,17 @@
 
 This directory contains comprehensive documentation for configuring the OTEL API Scraper.
 
+Full config explained: https://github.com/aakashH242/otel-api-scraper/blob/main/config.yaml.template
+
+[Download Config Template](../config.yaml.template)
+
+
 ## Documentation Structure
 
 ### [Global Configuration](global/README.md)
+
 Settings under the `scraper` section that control the overall behavior of the scraper:
+
 - Telemetry & observability settings
 - OTEL collector connection
 - Concurrency limits
@@ -14,12 +21,15 @@ Settings under the `scraper` section that control the overall behavior of the sc
 - Admin API settings
 
 **Key Topics:**
+
 - Which settings can be overridden at the source level
 - Default values and their implications
 - Best practices for production deployments
 
 ### [Source Configuration](sources/README.md)
+
 Settings for individual API sources under the `sources` section:
+
 - Authentication (Basic, API Key, OAuth, Azure AD)
 - Scrape configuration (range vs instant, time windows)
 - Data extraction and filtering
@@ -28,6 +38,7 @@ Settings for individual API sources under the `sources` section:
 - Delta detection per source
 
 **Key Topics:**
+
 - Complete examples for common use cases
 - Field reference with override capabilities
 - Tips for optimizing API scraping
@@ -186,7 +197,7 @@ The scraper validates your configuration on startup using Pydantic models. Commo
      enableAdminApi: true
      adminSecretEnv: "ADMIN_SECRET"
    ```
-   Trigger manual scrapes via HTTP API.
+   Trigger manual scrapes via HTTP API (Coming soon).
 
 ## Additional Resources
 
@@ -196,6 +207,7 @@ The scraper validates your configuration on startup using Pydantic models. Commo
 ## Support
 
 For issues or questions:
+
 - Check the detailed docs: [Global](global/README.md) | [Sources](sources/README.md)
 - Review explanations in [config.yaml.template](../config.yaml.template)
 - See complete working examples in [Sources README](sources/README.md#complete-examples)

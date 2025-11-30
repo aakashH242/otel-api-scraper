@@ -19,6 +19,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Copy config files to docs
+        run: |
+          cp config.yaml config.yaml.template docs/
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:

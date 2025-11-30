@@ -14,7 +14,8 @@ You can also adjust these values for your deployment needs.
 - **OTEL Collector**: Receives OTLP metrics/logs and forwards to Prometheus (via Prometheus scrape) and Loki.
 
 ## Quickstart
-1) Use the provided stack under `LOCAL_TESTING/`:
+
+1. Use the provided stack under `LOCAL_TESTING/`:
    - Compose: [`LOCAL_TESTING/compose.yaml`](LOCAL_TESTING/compose.yaml)
    - Collector config: [`LOCAL_TESTING/config/collector.yaml`](LOCAL_TESTING/config/collector.yaml)
    - Prometheus config: [`LOCAL_TESTING/config/prometheus.yml`](LOCAL_TESTING/config/prometheus.yml)
@@ -22,7 +23,7 @@ You can also adjust these values for your deployment needs.
    - Grafana datasources: [`LOCAL_TESTING/config/grafana-datasources.yaml`](LOCAL_TESTING/config/grafana-datasources.yaml)
    - Grafana ini: [`LOCAL_TESTING/config/grafana.ini`](LOCAL_TESTING/config/grafana.ini)
 
-2) Start the observability stack:
+2. Start the observability stack:
    ```bash
    docker-compose -f "LOCAL_TESTING/compose.yaml" up -d
    ```
@@ -75,10 +76,10 @@ SCRAPER_CONFIG=./config.yaml uv run otel-api-scraper
 # or inside the container, ensure config points to http://otel-collector:4317
 ```
 
-4) Inspect:
-- Grafana: http://localhost:3000 (default creds admin/admin), browse Prometheus metrics and Loki logs.
-- Prometheus: http://localhost:9090
-- Loki API: http://localhost:3100
+- Inspect:
+  - Grafana: http://localhost:3000 (default creds admin/admin), browse Prometheus metrics and Loki logs.
+  - Prometheus: http://localhost:9090
+  - Loki API: http://localhost:3100
 
 ## Tips
 - When using the sample configurations 
