@@ -8,13 +8,15 @@ This directory contains comprehensive examples for all three metric types suppor
 **What they are:** Monotonically increasing values (only go up, never down)
 
 **Value Configuration Options:**
-- ✅ **Default increment** (adds 1 per record) - no `valueKey` or `fixedValue`
+
+- ✅ **Default increment** (adds 1 per record) - no `dataKey` or `fixedValue`
 - ✅ **Fixed value** (adds same amount per record) - use `fixedValue`
-- ✅ **From field** (adds field value per record) - use `valueKey`
+- ✅ **From field** (adds field value per record) - use `dataKey`
 
 **Common uses:** Event counts, error totals, bytes processed, request totals
 
 **Example scenarios:**
+
 - Count API requests: `events_total` (default increment)
 - Sum data volumes: `bytes_processed_total` (from field)
 - Weight scoring: `processing_units_total` (fixed value)
@@ -25,6 +27,7 @@ This directory contains comprehensive examples for all three metric types suppor
 **What they are:** Distribution of values showing percentiles and buckets
 
 **Value Configuration Options:**
+
 - ✅ **From field** (most common) - use `dataKey` 
 - ✅ **Fixed value** (less common) - use `fixedValue`
 - ✅ **Bucket boundaries** - define distribution ranges with `buckets`
@@ -32,6 +35,7 @@ This directory contains comprehensive examples for all three metric types suppor
 **Common uses:** Response times, payload sizes, durations, resource utilization
 
 **Example scenarios:**
+
 - Response time distribution: `request_response_time` (from field)
 - CPU usage patterns: `cpu_utilization` (from field)
 - Request weighting: `request_weight_distribution` (fixed value)
@@ -42,12 +46,14 @@ This directory contains comprehensive examples for all three metric types suppor
 **What they are:** Point-in-time values that can go up or down
 
 **Value Configuration Options:**
+
 - ✅ **From field** (most common) - use `dataKey`
 - ✅ **Fixed value** (for constants) - use `fixedValue`
 
 **Common uses:** Current resource levels, queue depths, active connections, temperatures
 
 **Example scenarios:**
+
 - Current active connections: `service_active_connections` (from field)
 - SLA targets: `service_availability_target` (fixed value)
 - Resource utilization: `service_cpu_utilization` (from field)
@@ -75,11 +81,13 @@ counterReadings:
 ### Value Priority Rules
 
 **Counters:**
-1. `fixedValue` (if set, ignores `valueKey`)
-2. `valueKey` (if set, uses field value)
+
+1. `fixedValue` (if set, ignores `dataKey`)
+2. `dataKey` (if set, uses field value)
 3. Default increment of 1 (if neither set)
 
 **Histograms & Gauges:**
+
 1. `fixedValue` (if set, ignores `dataKey`)
 2. `dataKey` (if set, uses field value)
 
@@ -100,7 +108,7 @@ counterReadings:
 counterReadings:
   - name: "events_total"
     unit: "1"
-    # No valueKey/fixedValue = counts records (adds 1 each)
+    # No dataKey/fixedValue = counts records (adds 1 each)
 
   - name: "processing_points_total" 
     fixedValue: 5
@@ -108,7 +116,7 @@ counterReadings:
     # Each record adds 5 points
 
   - name: "bytes_transferred_total"
-    valueKey: "payload_size_bytes"
+    dataKey: "payload_size_bytes"
     unit: "bytes"
     # Sums the payload_size_bytes field
 ```
@@ -154,6 +162,7 @@ gaugeReadings:
 - ✅ Tracking cumulative bytes/duration
 
 **Questions to ask:**
+
 - "How many X have happened?"
 - "What's the total amount of Y?"
 - "How much has increased since yesterday?"
@@ -165,6 +174,7 @@ gaugeReadings:
 - ✅ You need to understand spread/outliers
 
 **Questions to ask:**
+
 - "What's the 95th percentile response time?"
 - "How are request sizes distributed?"
 - "What percentage of requests are fast vs slow?"
@@ -176,46 +186,10 @@ gaugeReadings:
 - ✅ Tracking active/current items
 
 **Questions to ask:**
+
 - "What's the current value right now?"
 - "How many are active at this moment?"
 - "What's the latest reading?"
-
----
-
-## Common Value Sources
-
-### API Response Fields
-```yaml
-# From simple fields
-dataKey: "response_time_ms"
-valueKey: "error_count"
-
-# From nested objects  
-dataKey: "metrics.cpu_usage_percent"
-valueKey: "stats.bytes_processed"
-
-# From root level (when data is nested)
-dataKey: "$root.total_records"
-```
-
-### Fixed Business Values
-```yaml
-# SLA targets
-fixedValue: 99.9
-
-# Weights/priorities
-fixedValue: 10
-
-# Boolean as numbers
-fixedValue: 1  # for "enabled" records
-```
-
-### Computed/Derived Values
-```yaml
-# If API provides calculated fields
-dataKey: "computed_score"
-dataKey: "derived_utilization_percent"
-```
 
 ---
 
@@ -269,18 +243,11 @@ buckets: [0, 1, 5, 10, 20, 50, 100, 200, 500, 1000]
 - `"1"` - Pure counts, ratios, percentages
 - `"percent"` - Percentage values (0-100)
 
-### Custom Units
-```yaml
-unit: "{connections}"    # Custom unit for connections
-unit: "{licenses}"       # Custom unit for licenses
-unit: "{points}"         # Custom unit for scoring
-```
-
 ---
 
-## Example API Response Format
+## Example API Response And Config
 
-All examples use realistic API responses:
+With the given JSON response below:
 
 ```json
 {
@@ -298,7 +265,29 @@ All examples use realistic API responses:
 }
 ```
 
+And configuration as
+```yaml
+scraper:
+  ...
+
+sources:
+  - name: ...
+    dataKey: events
+    counterReadings:
+      - name: events
+        unit: "1"
+        fixedValue: 1
+      - name: bytes_processed
+        unit: "1"
+        dataKey: bytes_processed
+    histogramReadings:
+      - name: processing_time
+        unit: "milliseconds"
+        dataKey: processing_time_ms
+```
+
 This creates metrics like:
+
 - `events_total{event_type="user_login", status="success", region="us-east-1"} = 1`
 - `bytes_processed_total{event_type="user_login", region="us-east-1"} = 2048`
 - `processing_time_distribution{event_type="user_login"} (histogram with buckets)`
@@ -355,12 +344,12 @@ counterReadings:
   
   # Sum processing time
   - name: "processing_time_total"
-    valueKey: "processing_time_ms"
+    dataKey: "processing_time_ms"
     unit: "milliseconds"
   
   # Weight by business value
   - name: "business_value_total"
-    valueKey: "transaction_value_cents"
+    dataKey: "transaction_value_cents"
     unit: "cents"
 ```
 
@@ -388,6 +377,16 @@ histogramReadings:
 
 ---
 
+## Extra Reading
+
+| File | Covers | Key Concepts |
+|------|--------|--------------|
+| [counters.yaml](counters.yaml) | 3 value types | Default increment, fixed value, from field |
+| [histograms.yaml](histograms.yaml) | 2 value types + buckets | Distribution analysis, percentiles |
+| [gauges.yaml](gauges.yaml) | 2 value types | Current state, point-in-time values |
+
+---
+
 ## Additional Resources
 
 - [Authentication Examples](../auth/README.md) - How to configure auth
@@ -398,20 +397,5 @@ histogramReadings:
 
 ---
 
-## Summary
-
-| File | Covers | Key Concepts |
-|------|--------|--------------|
-| [counters.yaml](counters.yaml) | 3 value types | Default increment, fixed value, from field |
-| [histograms.yaml](histograms.yaml) | 2 value types + buckets | Distribution analysis, percentiles |
-| [gauges.yaml](gauges.yaml) | 2 value types | Current state, point-in-time values |
-
-All examples show:
-- ✅ Complete, working configurations
-- ✅ Realistic API response formats
-- ✅ Proper label usage (from attributes)
-- ✅ Error handling behavior
-- ✅ When to use each pattern
-- ✅ Example Prometheus metrics output
 
 Copy and adapt these patterns to your specific APIs and use cases!

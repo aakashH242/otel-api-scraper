@@ -10,6 +10,8 @@
 ![Lint](https://img.shields.io/github/actions/workflow/status/aakashH242/otel-api-scraper/ci.yml?branch=main&label=lint)
 ![Unit Tests](https://img.shields.io/github/actions/workflow/status/aakashH242/otel-api-scraper/ci.yml?branch=main&label=tests)
 [![Coverage](https://codecov.io/gh/aakashH242/otel-api-scraper/graph/badge.svg)](https://codecov.io/gh/aakashH242/otel-api-scraper)
+[![Docs](https://img.shields.io/badge/docs-online-blue)](https://aakashh242.github.io/otel-api-scraper/)
+
 
 > Config-driven async bridge that turns any HTTP/data API into OpenTelemetry metrics and logs. 
 
@@ -63,6 +65,7 @@ Entirely YAML-driven. Add/update sources by editing config—no code needed.
 ### Config-driven scraping
 - Declare every source in YAML: frequency (5min, 1h, 1d, …), scrape mode (range with start/end or relative windows; instant snapshots), time formats (global + per-source), and query params (time keys, extra args, URL encoding rules). 
 - Add/change sources by editing config—no code.
+- Check out the [config template](config.yaml.template) to learn more about configuration parameters.
 
 ### Rich auth strategies
 - Built-in: Basic (env creds), API key headers, OAuth (static token or runtime via HTTP GET/POST with configurable body/headers and response key), Azure AD client credentials. 
@@ -137,20 +140,26 @@ Entirely YAML-driven. Add/update sources by editing config—no code needed.
      otelCollectorEndpoint: "http://otel-collector:4318"
      otelTransport: "http"   # or "grpc"
 
-   sources:
-     - name: demo-api
-       frequency: "1min"
-       auth: null
-       baseUrl: "https://httpbin.org"
-       endpoint: "/json"
-       scrape:
-         type: instant
-       dataKey: slideshow.slides   # where the records live
-       gaugeReadings:
-         - name: demo_slide_count
-           dataKey: $root.length   # pseudo-example; see real docs
-           unit: "1"
-       emitLogs: true
+   sources:  
+   - name: JSON-Placeholder
+     baseUrl: https://jsonplaceholder.typicode.com
+     endpoint: /posts
+     frequency: 5m
+     scrape:
+       type: instant
+     counterReadings:
+       - name: invoke_counts
+         fixedValue: 1
+       - name: sum_of_ids
+         dataKey: id
+         unit: "1"
+     attributes:
+       - name: user_id
+         dataKey: userId
+       - name: post_id
+         dataKey: id
+     emitLogs: true
+     runFirstScrape: false
    ```
    (Use your real API instead of httpbin; full config semantics are documented in the [configuration docs](docs/CONFIGURATION/README.md).)
 
@@ -426,6 +435,8 @@ Comprehensive guides and examples for every aspect of the scraper:
 - **[Measurement Types Examples](docs/CONFIGURATION/sources/measurements/)** – Gauge/counter/histogram configuration patterns
 - **[Self-Telemetry Guide](docs/TELEMETRY.md)** – Complete metrics catalog, PromQL examples, alerting rules, and monitoring best practices
 - **[Local Testing Stack](docs/LOCAL_TESTING.md)** – Docker Compose setup with Grafana + Loki + Prometheus + OTEL collector
+
+👉 **Full documentation:** https://aakashh242.github.io/otel-api-scraper/
 
 ## 🤝 Contributing
 

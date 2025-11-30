@@ -34,11 +34,11 @@ This document describes all configuration options for individual API sources und
 - **Type**: `string`
 - **Required**: ✅ Yes
 - **Format**: `<number><unit>` where unit is one of:
-  - `min` - minutes
+  - `m`/`min` - minutes
   - `h` - hours  
   - `d` - days
   - `w` - weeks
-  - `m` - months
+  - `mon` - months
 - **Description**: How often to scrape this API endpoint. The scraper will schedule scrapes at this interval.
 - **Examples**:
   - `"15min"` - Every 15 minutes
@@ -245,7 +245,7 @@ scrape:
 - **`startKey`**: Query parameter name for range start (e.g., `from`, `start_time`, `since`)
 - **`endKey`**: Query parameter name for range end (e.g., `to`, `end_time`, `until`)
 - **`firstScrapeStart`**: Historical start time for the first scrape (optional)
-- **`dateFormat`**: Legacy format override (prefer `scrape.timeFormat`)
+- **`dateFormat`**: Global format override (prefer `scrape.timeFormat`)
 - **Result**: `?from=2025-11-28T10:00:00Z&to=2025-11-28T11:00:00Z`
 
 #### Relative Time Window
@@ -456,18 +456,18 @@ Counters represent **monotonically increasing counts** (e.g., total requests, er
 ```yaml
 counterReadings:
   - name: "api_requests_total"
-    valueKey: "request_count"  # Add this value to counter
+    dataKey: "request_count"  # Add this value to counter
     unit: "1"
   
   - name: "records_processed"
-    # No valueKey = each record adds 1
+    # No dataKey = each record adds 1
     unit: "1"
   
   - name: "errors_total"
     fixedValue: 1
 ```
 
-- **`valueKey`**: Field to extract counter increment from (optional, defaults to 1 per record)
+- **`dataKey`**: Field to extract counter increment from (optional, defaults to 1 per record)
 
 ### Histogram Metrics (`histogramReadings`)
 
@@ -489,7 +489,8 @@ histogramReadings:
 
 ### `attributes`
 
-Attach key-value pairs to telemetry as resource/span attributes.
+Attach key-value pairs to telemetry as resource/span attributes. Every telemetry point created will always have the
+`source` label which is the name of the API source from the config.
 
 ```yaml
 attributes:
@@ -576,7 +577,7 @@ sources:
     
     scrape:
       type: range
-      timeFormat: "%s"  # Unix timestamp
+      dateFormat: "%s"  # Unix timestamp
 
       rangeKeys:
         startKey: "created[gte]"
@@ -595,7 +596,7 @@ sources:
     
     counterReadings:
       - name: "charges_total"
-        valueKey: "amount"
+        dataKey: "amount"
     
     histogramReadings:
       - name: "charge_amount"
@@ -728,6 +729,7 @@ For comprehensive, working examples of specific configuration aspects, see these
 
 ### 🔐 [Authentication Examples](auth/README.md)
 Complete examples for all supported authentication methods:
+
 - **[No Authentication](auth/no-auth.yaml)** - Public APIs
 - **[Basic Auth](auth/basic-auth.yaml)** - Username/password authentication
 - **[API Key Auth](auth/apikey-auth.yaml)** - Header-based API keys (Stripe example)
@@ -743,6 +745,7 @@ Each example includes:
 
 ### ⏱️ [Scrape Types Examples](scrape-types/README.md)
 Comprehensive examples for both scrape types:
+
 - **[Range-Type Scraping](scrape-types/range-type.yaml)** - Time-window based data collection
 - **[Instant-Type Scraping](scrape-types/instant-type.yaml)** - Current state snapshots
 
@@ -754,43 +757,36 @@ Key differences explained:
 
 ### 📊 [Measurement Types Examples](measurements/README.md)
 Detailed examples for all three metric types:
+
 - **[Counter Metrics](measurements/counters.yaml)** - Monotonically increasing values
 - **[Histogram Metrics](measurements/histograms.yaml)** - Value distributions and percentiles
 - **[Gauge Metrics](measurements/gauges.yaml)** - Point-in-time current values
 
 Each shows all value configuration options:
-- From data fields (`dataKey`/`valueKey`)
+
+- From data fields (`dataKey`/`dataKey`)
 - Fixed values (`fixedValue`)
 - Default behaviors
-- **How labels come from attributes** (no separate labels field!)
-
-### 🎯 Why Use These Examples?
-
-- **Copy-Paste Ready**: All examples are complete and functional
-- **Real APIs**: Based on actual services (Stripe, GitHub, Azure, etc.)
-- **Best Practices**: Security, performance, and operational considerations
-- **Error Handling**: Shows what happens when things go wrong
-- **Production Patterns**: Suitable for real-world deployments
+- **How labels come from attributes**
 
 ---
 
 ## Tips & Best Practices
 
-1. **Start Simple**: Begin with `type: instant`, no auth, and basic counters. Add complexity incrementally.
 
-2. **Use Delta Detection**: Enable for APIs that may return duplicate data across scrapes.
+1. **Use Delta Detection**: Enable for APIs that may return duplicate data across scrapes.
 
-3. **Filter Early**: Use `filters.drop` to discard noise before metrics are generated (saves memory and OTEL payload size).
+2. **Filter Early**: Use `filters.drop` to discard noise before metrics are generated (saves memory and OTEL payload size).
 
-4. **Parallel Windows**: For large historical backfills or wide time ranges, use `parallelWindow` to speed up collection.
+3. **Parallel Windows**: For large historical backfills or wide time ranges, use `parallelWindow` to speed up collection.
 
-5. **Monitor Concurrency**: Watch `scrape.maxConcurrency` and `scraper.maxGlobalConcurrency` to avoid overwhelming APIs.
+4. **Monitor Concurrency**: Watch `scrape.maxConcurrency` and `scraper.maxGlobalConcurrency` to avoid overwhelming APIs.
 
-6. **Secure Credentials**: Always use environment variables for secrets. Never hardcode credentials in `config.yaml`.
+5. **Secure Credentials**: Always use environment variables for secrets. Never hardcode credentials in `config.yaml`.
 
-7. **Test with `dryRun`**: Set `scraper.dryRun: true` globally to see what metrics/logs would be emitted without actually sending them.
+6. **Test with `dryRun`**: Set `scraper.dryRun: true` globally to see what metrics/logs would be emitted without actually sending them.
 
-8. **Label Cardinality**: Be careful with counter/histogram labels. High-cardinality labels (e.g., user IDs) can explode your metric storage.
+7. **Label Cardinality**: Be careful with counter/histogram labels. High-cardinality labels (e.g., user IDs) can explode your metric storage.
 
 ---
 

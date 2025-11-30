@@ -49,6 +49,7 @@ cp config.yaml.template config.yaml
 ```
 
 Edit `config.yaml` to set at minimum:
+
 - `scraper.otelCollectorEndpoint` – your collector's OTLP endpoint
 - At least one source configuration
 
@@ -61,19 +62,32 @@ scraper:
   serviceName: "otel-api-scraper"
 
 sources:
-  - name: demo-api
-    frequency: "1min"
-    auth: null
-    baseUrl: "https://httpbin.org"
-    endpoint: "/json"
+  - name: Dummy-JSON
+    baseUrl: https://dummyjson.com
+    endpoint: /comments
+    frequency: 1m
     scrape:
       type: instant
-    dataKey: slideshow.slides
+      extraHeaders:
+        Accept: "application/json"
+    dataKey: comments
     gaugeReadings:
-      - name: demo_slide_count
-        dataKey: $root.length
+      - name: comments_count
+        dataKey: $root.limit
         unit: "1"
+    counterReadings:
+      - name: likes_count
+        dataKey: likes
+        unit: "1"
+    attributes:
+      - name: user_id
+        dataKey: user.id
+      - name: comment_id
+        dataKey: id
+      - name: post_id
+        dataKey: postId
     emitLogs: true
+    runFirstScrape: true
 ```
 
 #### 5. Run the Scraper
@@ -85,7 +99,7 @@ uv run otel-api-scraper --config config.yaml
 Or use the `otel-api-scraper` command directly if the virtual environment is activated:
 
 ```bash
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+source .venv/bin/activate  # On Windows: . .venv\Scripts\activate.ps1
 otel-api-scraper --config config.yaml
 ```
 

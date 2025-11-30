@@ -159,19 +159,19 @@ sources:
       # Each record adds its 'records_processed' value to the counter
       # Labels: integration_name, status (from attributes)
       - name: "integration_records_total"
-        valueKey: "records_processed"
+        dataKey: "records_processed"
         unit: "1"
 
       # Count total errors across all runs
       # Labels: integration_name, error_type (from attributes)
       - name: "integration_errors_total"
-        valueKey: "error_count"
+        dataKey: "error_count"
         unit: "1"
 
       # Track data volume processed (in bytes)
       # Labels: integration_name, direction (from attributes)
       - name: "integration_data_bytes_total"
-        valueKey: "data_size_bytes"
+        dataKey: "data_size_bytes"
         unit: "bytes"
 
     # Histogram metrics - distributions of values

@@ -4,9 +4,9 @@
 # They're perfect for counting events, requests, errors, bytes processed, etc.
 #
 # There are THREE ways to configure counter values:
-# 1. Default increment (adds 1 per record) - no valueKey or fixedValue
+# 1. Default increment (adds 1 per record) - no dataKey or fixedValue
 # 2. Fixed value (adds same amount per record) - use fixedValue
-# 3. From field in data (adds field value per record) - use valueKey
+# 3. From field in data (adds field value per record) - use dataKey
 #
 # All labels come from the 'attributes' section (no separate labels field!)
 
@@ -53,12 +53,12 @@ sources:
       # ------------------------------------------------------
       # 1. DEFAULT INCREMENT (adds 1 per record)
       # ------------------------------------------------------
-      # No valueKey or fixedValue = adds 1 for each record
+      # No dataKey or fixedValue = adds 1 for each record
       # Perfect for counting events, requests, items processed
 
       - name: "events_total"
         unit: "1"
-        # No valueKey, no fixedValue = each record adds 1
+        # No dataKey, no fixedValue = each record adds 1
         # Labels come from attributes: event_type, status, region
 
       - name: "user_events_total"
@@ -96,23 +96,23 @@ sources:
       # ------------------------------------------------------
       # 3. FROM FIELD IN DATA (adds field value per record)
       # ------------------------------------------------------
-      # Use valueKey to extract the counter increment from record fields
+      # Use dataKey to extract the counter increment from record fields
       # Perfect for summing bytes, duration, counts, etc.
 
       - name: "bytes_processed_total"
-        valueKey: "bytes_processed"
+        dataKey: "bytes_processed"
         unit: "bytes"
         # Each record adds its bytes_processed value to counter
         # Record 1: +2048, Record 2: +1048576 = Total: 1050624
 
       - name: "processing_time_total"
-        valueKey: "processing_time_ms"
+        dataKey: "processing_time_ms"
         unit: "milliseconds"
         # Each record adds its processing time
         # Record 1: +150ms, Record 2: +850ms = Total: 1000ms
 
       - name: "retry_attempts_total"
-        valueKey: "retry_count"
+        dataKey: "retry_count"
         unit: "1"
         # Each record adds its retry count
         # Record 1: +0, Record 2: +2 = Total: 2 retries
@@ -135,22 +135,22 @@ sources:
         # high_latency_events_total{processing_time_ms>500}
 
       # ------------------------------------------------------
-      # 5. BUSINESS METRICS (valueKey with custom logic)
+      # 5. BUSINESS METRICS (dataKey with custom logic)
       # ------------------------------------------------------
 
       - name: "revenue_cents_total"
-        valueKey: "transaction_amount_cents"
+        dataKey: "transaction_amount_cents"
         unit: "1"
         # If your data has transaction amounts
         # Each record adds its transaction value
 
       - name: "disk_space_used_total"
-        valueKey: "file_size_bytes"
+        dataKey: "file_size_bytes"
         unit: "bytes"
         # Track cumulative disk usage
 
       - name: "api_calls_weighted_total"
-        valueKey: "cost_weight"
+        dataKey: "cost_weight"
         unit: "1"
         # If each API call has a cost weight/complexity score
 
@@ -211,7 +211,7 @@ sources:
 # WHEN TO USE EACH TYPE
 # ============================================================
 
-# DEFAULT INCREMENT (no valueKey/fixedValue):
+# DEFAULT INCREMENT (no dataKey/fixedValue):
 # ✅ Count events, requests, errors, items
 # ✅ Simple "how many X happened" metrics
 # ✅ Boolean conditions (success/failure counts)
@@ -222,7 +222,7 @@ sources:
 # ✅ Artificial multipliers
 # ✅ When you need explicit value (not 1)
 
-# FROM FIELD (valueKey):
+# FROM FIELD (dataKey):
 # ✅ Sum bytes, duration, money, quantities
 # ✅ Accumulate numeric values from records
 # ✅ Track totals that vary per record
@@ -232,14 +232,14 @@ sources:
 # IMPORTANT NOTES
 # ============================================================
 
-# 1. PRIORITY: fixedValue > valueKey > default(1)
-#    - If fixedValue is set, it's used (ignores valueKey)
-#    - If no fixedValue but valueKey is set, uses field value
+# 1. PRIORITY: fixedValue > dataKey > default(1)
+#    - If fixedValue is set, it's used (ignores dataKey)
+#    - If no fixedValue but dataKey is set, uses field value
 #    - If neither set, adds 1 per record
 
 # 2. ERROR HANDLING:
-#    - If valueKey field is missing/null: adds 0 (skips record)
-#    - If valueKey field is non-numeric: adds 1 (fallback)
+#    - If dataKey field is missing/null: adds 0 (skips record)
+#    - If dataKey field is non-numeric: adds 1 (fallback)
 #    - fixedValue is always used as-is
 
 # 3. ALL COUNTERS GET ALL ATTRIBUTES AS LABELS:

@@ -10,6 +10,7 @@ This directory contains complete, working examples for all supported authenticat
 **Example API:** JSONPlaceholder (free fake REST API)
 
 **Key Features:**
+
 - Simple instant scrape
 - Delta detection with fingerprint keys
 - Basic counter metrics and attributes
@@ -26,17 +27,18 @@ uv run otel-api-scraper
 **Use Case:** APIs using HTTP Basic Auth (username/password)
 
 **Key Features:**
+
 - Username and password from environment variables
 - Instant scrape with data nesting
 - Gauge and counter metrics
 
 **Config:**
 ```yaml
-    auth:
-      type: basic
-      # These are ENVIRONMENT VARIABLE NAMES, not the actual credentials
-      username: API_USERNAME  # Reads from os.environ["API_USERNAME"]
-      password: API_PASSWORD  # Reads from os.environ["API_PASSWORD"]
+auth:
+  type: basic
+  # These are ENVIRONMENT VARIABLE NAMES, not the actual credentials
+  username: API_USERNAME  # Reads from os.environ["API_USERNAME"]
+  password: API_PASSWORD  # Reads from os.environ["API_PASSWORD"]
 ```
 
 **Quick Start:**
@@ -54,6 +56,7 @@ uv run otel-api-scraper
 **Example API:** Stripe Charges API
 
 **Key Features:**
+
 - Custom header authentication
 - Range-based scraping with time windows
 - Histogram metrics for distributions
@@ -62,13 +65,13 @@ uv run otel-api-scraper
 
 **Config:**
 ```yaml
-    auth:
-      type: apikey
-      # Header name that the API expects
-      keyName: "Authorization"
-      # Environment variable name containing the API key
-      # The actual value might be: "Bearer sk_live_xxxxx"
-      keyValue: STRIPE_API_KEY  # Reads from os.environ["STRIPE_API_KEY"]
+auth:
+  type: apikey
+  # Header name that the API expects
+  keyName: "Authorization"
+  # Environment variable name containing the API key
+  # The actual value might be: "Bearer sk_live_xxxxx"
+  keyValue: STRIPE_API_KEY  # Reads from os.environ["STRIPE_API_KEY"]
 ```
 
 **Quick Start:**
@@ -85,6 +88,7 @@ uv run otel-api-scraper
 **Example API:** GitHub Issues API
 
 **Key Features:**
+
 - Pre-generated OAuth token from environment
 - Nested data extraction (user.login)
 - Delta detection with multiple keys
@@ -104,6 +108,7 @@ uv run otel-api-scraper
 ```
 
 **How to get a GitHub token:**
+
 1. Go to GitHub Settings → Developer settings → Personal access tokens
 2. Generate new token (classic) with `repo` scope
 3. Copy the token and set as environment variable
@@ -114,6 +119,7 @@ uv run otel-api-scraper
 **Use Case:** OAuth2 Client Credentials flow
 
 **Key Features:**
+
 - Dynamic token acquisition before each scrape
 - Client ID and secret authentication
 - Custom token endpoint configuration
@@ -123,30 +129,30 @@ uv run otel-api-scraper
 
 **Config:**
 ```yaml
-    auth:
-      type: oauth
-      # Credentials for obtaining the token
-      username: OAUTH_CLIENT_ID      # Reads from os.environ["OAUTH_CLIENT_ID"]
-      password: OAUTH_CLIENT_SECRET  # Reads from os.environ["OAUTH_CLIENT_SECRET"]
+auth:
+  type: oauth
+  # Credentials for obtaining the token
+  username: OAUTH_CLIENT_ID      # Reads from os.environ["OAUTH_CLIENT_ID"]
+  password: OAUTH_CLIENT_SECRET  # Reads from os.environ["OAUTH_CLIENT_SECRET"]
 
-      # Token endpoint configuration
-      getTokenEndpoint: "https://auth.example.com/oauth/token"
-      getTokenMethod: "POST"
+  # Token endpoint configuration
+  getTokenEndpoint: "https://auth.example.com/oauth/token"
+  getTokenMethod: "POST"
 
-      # The JSON key in the token response that contains the access token
-      tokenKey: "access_token"
+  # The JSON key in the token response that contains the access token
+  tokenKey: "access_token"
 
-      # Optional headers to send when fetching the token
-      tokenHeaders:
-        Content-Type: "application/x-www-form-urlencoded"
-        Accept: "application/json"
+  # Optional headers to send when fetching the token
+  tokenHeaders:
+    Content-Type: "application/x-www-form-urlencoded"
+    Accept: "application/json"
 
-      # Optional body data to send with token request
-      bodyData:
-        type: json
-        data:
-          grant_type: "client_credentials"
-          scope: "read:events"
+  # Optional body data to send with token request
+  bodyData:
+    type: json
+    data:
+      grant_type: "client_credentials"
+      scope: "read:events"
 ```
 
 **Quick Start:**
@@ -157,6 +163,7 @@ uv run otel-api-scraper
 ```
 
 **How it works:**
+
 1. Scraper calls token endpoint with client credentials
 2. Token endpoint returns `{"access_token": "...", "expires_in": 3600}`
 3. Access token is used for API requests
@@ -168,10 +175,12 @@ uv run otel-api-scraper
 **Use Case:** Microsoft Azure APIs, Microsoft Graph, Microsoft 365
 
 **Example APIs:**
+
 - Azure Resource Manager (metrics)
 - Microsoft Graph (users)
 
 **Key Features:**
+
 - Service principal authentication
 - Azure-specific token endpoint
 - Resource-based access control
@@ -179,20 +188,20 @@ uv run otel-api-scraper
 
 **Config:**
 ```yaml
-    auth:
-      type: azuread
-      # Service principal credentials
-      client_id: AZURE_CLIENT_ID          # Reads from os.environ["AZURE_CLIENT_ID"]
-      client_secret: AZURE_CLIENT_SECRET  # Reads from os.environ["AZURE_CLIENT_SECRET"]
+auth:
+  type: azuread
+  # Service principal credentials
+  client_id: AZURE_CLIENT_ID          # Reads from os.environ["AZURE_CLIENT_ID"]
+  client_secret: AZURE_CLIENT_SECRET  # Reads from os.environ["AZURE_CLIENT_SECRET"]
 
-      # Azure AD token endpoint
-      # Replace {tenant-id} with your actual Azure AD tenant ID
-      tokenEndpoint: "https://login.microsoftonline.com/{tenant-id}/oauth2/token"
+  # Azure AD token endpoint
+  # Replace {tenant-id} with your actual Azure AD tenant ID
+  tokenEndpoint: "https://login.microsoftonline.com/{tenant-id}/oauth2/token"
 
-      # The resource you're requesting access to
-      # For Azure Resource Manager, use: https://management.azure.com/
-      # For Microsoft Graph, use: https://graph.microsoft.com/
-      resource: "https://management.azure.com/"
+  # The resource you're requesting access to
+  # For Azure Resource Manager, use: https://management.azure.com/
+  # For Microsoft Graph, use: https://graph.microsoft.com/
+  resource: "https://management.azure.com/"
 ```
 
 **Quick Start:**
@@ -253,8 +262,8 @@ sources:
 ### Test First
 1. Enable dry run mode to test without sending data:
    ```yaml
-   scraper:
-     dryRun: true
+scraper:
+ dryRun: true
    ```
 
 2. Run a single scrape:

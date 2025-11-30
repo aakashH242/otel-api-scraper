@@ -21,6 +21,9 @@ jobs:
         run: pip install --no-cache-dir uv
       - name: Sync docs dependencies
         run: pip install ".[docs]"
+      - name: Copy config files to docs
+        run: |
+          cp config.yaml config.yaml.template docs/
       - name: Build docs
         run: mkdocs build --strict --site-dir site
       - name: Configure Pages
