@@ -1,9 +1,9 @@
 ---
 name: 🐛 Bug Report
-description: Report a bug or issue with API2OTEL
+about: Report a bug or issue with API2OTEL
 title: "[BUG] "
 labels: ["bug", "triage"]
-assignees: []
+assignees: ''
 ---
 
 ## 🐛 Describe the Bug

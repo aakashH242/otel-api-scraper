@@ -1,9 +1,9 @@
 ---
 name: ✨ Feature Request
-description: Suggest a new feature or enhancement for API2OTEL
+about: Suggest a new feature or enhancement for API2OTEL
 title: "[FEATURE] "
 labels: ["enhancement", "triage"]
-assignees: []
+assignees: ''
 ---
 
 ## 📝 Description
