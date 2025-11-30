@@ -61,10 +61,10 @@ Declare every source in YAML with:
 - Time formats (global + per-source)
 - Query params (time keys, extra args, URL encoding rules)
 
-Add/change sources by editing config—no code changes required.
-Full config explained: https://github.com/aakashH242/otel-api-scraper/blob/main/config.yaml.template
+Add/change sources by editing config—no code changes required.  
+Full config explained: [Click here](https://github.com/aakashH242/otel-api-scraper/blob/main/config.yaml.template)
 
-![Download Config Template](./config.yaml.template)
+[Download Config Template](./config.yaml.template)
 
 ### 🔐 Rich Authentication Strategies
 
