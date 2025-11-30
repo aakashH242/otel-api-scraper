@@ -32,13 +32,13 @@ This guide covers getting API2OTEL running locally using Python and `uv` for dep
     
 3. Verify Installation
     
-   ```bash
-   # Check that uv created a virtual environment
-   ls .venv
+    ```bash
+    # Check that uv created a virtual environment
+    ls .venv
     
-   # Or run a quick command to verify
-   uv run python --version
-   ```
+    # Or run a quick command to verify
+    uv run python --version
+    ```
 
 4. Create Configuration
     
@@ -129,7 +129,7 @@ If you don't have `uv` installed or prefer traditional Python packaging:
     pip install -e .
     ```
 
-The `-e` flag installs in editable mode, useful for development.
+    The `-e` flag installs in editable mode, useful for development.
 
 4. Verify Installation
 
