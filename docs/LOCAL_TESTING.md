@@ -1,4 +1,4 @@
-# Local Testing: Grafana + Loki + Prometheus + OTEL Collector
+# Grafana + Loki + Prometheus + OTEL Collector + API2OTEL Stack
 
 This guide spins up a local observability stack (Grafana, Loki, Prometheus, OTEL Collector) so you can run and validate the scraper end-to-end. Requires Docker and docker-compose (or compatible, e.g., Podman + podman-compose).
 You can also adjust these values for your deployment needs.
