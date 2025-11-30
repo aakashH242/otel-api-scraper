@@ -15,93 +15,93 @@ This guide covers getting API2OTEL running locally using Python and `uv` for dep
 
 `uv` is a fast, modern Python package installer and resolver. It's the recommended way to set up API2OTEL.
 
-#### 1. Clone the Repository
+1. Clone the Repository
 
-```bash
-git clone https://github.com/aakashH242/otel-api-scraper.git
-cd otel-api-scraper
-```
+    ```bash
+    git clone https://github.com/aakashH242/otel-api-scraper.git
+    cd otel-api-scraper
+    ```
 
-#### 2. Install Dependencies
+2. Install Dependencies
 
-```bash
-uv sync
-```
+    ```bash
+    uv sync
+    ```
+    
+    This installs all dependencies specified in `pyproject.toml` into a virtual environment.
+    
+3. Verify Installation
+    
+   ```bash
+   # Check that uv created a virtual environment
+   ls .venv
+    
+   # Or run a quick command to verify
+   uv run python --version
+   ```
 
-This installs all dependencies specified in `pyproject.toml` into a virtual environment.
+4. Create Configuration
+    
+    Copy the template configuration:
+    
+    ```bash
+    cp config.yaml.template config.yaml
+    ```
+    
+    Edit `config.yaml` to set at minimum:
+    
+    - `scraper.otelCollectorEndpoint` – your collector's OTLP endpoint
+    - At least one source configuration
+    
+    **Minimal config example:**
+    
+    ```yaml
+    scraper:
+      otelCollectorEndpoint: "http://localhost:4318"
+      otelTransport: "http"  # or "grpc" if using gRPC endpoint
+      serviceName: "otel-api-scraper"
+    
+    sources:
+      - name: Dummy-JSON
+        baseUrl: https://dummyjson.com
+        endpoint: /comments
+        frequency: 1m
+        scrape:
+          type: instant
+          extraHeaders:
+            Accept: "application/json"
+        dataKey: comments
+        gaugeReadings:
+          - name: comments_count
+            dataKey: $root.limit
+            unit: "1"
+        counterReadings:
+          - name: likes_count
+            dataKey: likes
+            unit: "1"
+        attributes:
+          - name: user_id
+            dataKey: user.id
+          - name: comment_id
+            dataKey: id
+          - name: post_id
+            dataKey: postId
+        emitLogs: true
+        runFirstScrape: true
+    ```
 
-#### 3. Verify Installation
-
-```bash
-# Check that uv created a virtual environment
-ls .venv
-
-# Or run a quick command to verify
-uv run python --version
-```
-
-#### 4. Create Configuration
-
-Copy the template configuration:
-
-```bash
-cp config.yaml.template config.yaml
-```
-
-Edit `config.yaml` to set at minimum:
-
-- `scraper.otelCollectorEndpoint` – your collector's OTLP endpoint
-- At least one source configuration
-
-**Minimal config example:**
-
-```yaml
-scraper:
-  otelCollectorEndpoint: "http://localhost:4318"
-  otelTransport: "http"  # or "grpc" if using gRPC endpoint
-  serviceName: "otel-api-scraper"
-
-sources:
-  - name: Dummy-JSON
-    baseUrl: https://dummyjson.com
-    endpoint: /comments
-    frequency: 1m
-    scrape:
-      type: instant
-      extraHeaders:
-        Accept: "application/json"
-    dataKey: comments
-    gaugeReadings:
-      - name: comments_count
-        dataKey: $root.limit
-        unit: "1"
-    counterReadings:
-      - name: likes_count
-        dataKey: likes
-        unit: "1"
-    attributes:
-      - name: user_id
-        dataKey: user.id
-      - name: comment_id
-        dataKey: id
-      - name: post_id
-        dataKey: postId
-    emitLogs: true
-    runFirstScrape: true
-```
-
-#### 5. Run the Scraper
-
-```bash
-uv run otel-api-scraper --config config.yaml
-```
-
-Or use the `otel-api-scraper` command directly if the virtual environment is activated:
-
-```bash
-source .venv/bin/activate  # On Windows: . .venv\Scripts\activate.ps1
-otel-api-scraper --config config.yaml
-```
+5. Run the Scraper
+    
+    ```bash
+    uv run otel-api-scraper --config config.yaml
+    ```
+    
+    Or use the `otel-api-scraper` command directly if the virtual environment is activated:
+    
+    ```bash
+    source .venv/bin/activate  # On Windows: . .venv\Scripts\activate.ps1
+    otel-api-scraper --config config.yaml
+    ```
 
 ---
 
@@ -109,47 +109,47 @@ otel-api-scraper --config config.yaml
 
 If you don't have `uv` installed or prefer traditional Python packaging:
 
-#### 1. Clone the Repository
+1. Clone the Repository
 
-```bash
-git clone https://github.com/aakashH242/otel-api-scraper.git
-cd otel-api-scraper
-```
+    ```bash
+    git clone https://github.com/aakashH242/otel-api-scraper.git
+    cd otel-api-scraper
+    ```
 
-#### 2. Create Virtual Environment
+2. Create Virtual Environment
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-```
+    ```bash
+    python3 -m venv .venv
+    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+    ```
 
-#### 3. Install Package
+3. Install Package
 
-```bash
-pip install -e .
-```
+    ```bash
+    pip install -e .
+    ```
 
 The `-e` flag installs in editable mode, useful for development.
 
-#### 4. Verify Installation
+4. Verify Installation
 
-```bash
-python --version
-pip list | grep otel-api-scraper
-```
+    ```bash
+    python --version
+    pip list | grep otel-api-scraper
+    ```
 
-#### 5. Create Configuration
+5. Create Configuration
 
-```bash
-cp config.yaml.template config.yaml
-# Edit config.yaml as needed
-```
+    ```bash
+    cp config.yaml.template config.yaml
+    # Edit config.yaml as needed
+    ```
 
-#### 6. Run the Scraper
+6. Run the Scraper
 
-```bash
-otel-api-scraper --config config.yaml
-```
+    ```bash
+    otel-api-scraper --config config.yaml
+    ```
 
 ---
 
@@ -191,54 +191,54 @@ Once running, verify the scraper is working:
 
 ## Troubleshooting
 
-### Command not found: `uv`
+1. Command not found: `uv`
 
-Install `uv` using:
-```bash
-pip install uv
-```
+    Install `uv` using:
+    ```bash
+    pip install uv
+    ```
+    
+    Or use system package manager:
+    ```bash
+    # macOS
+    brew install uv
+    
+    # Ubuntu/Debian
+    sudo apt-get install uv
+    
+    # Or download from: https://github.com/astral-sh/uv/releases
+    ```
 
-Or use system package manager:
-```bash
-# macOS
-brew install uv
+2. Command not found: `otel-api-scraper`
 
-# Ubuntu/Debian
-sudo apt-get install uv
+    Make sure your virtual environment is activated:
+    ```bash
+    source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+    ```
+    
+    Or use `uv run`:
+    ```bash
+    uv run otel-api-scraper --config config.yaml
+    ```
 
-# Or download from: https://github.com/astral-sh/uv/releases
-```
+3. Python version error
 
-### Command not found: `otel-api-scraper`
+    Check your Python version:
+    ```bash
+    python --version
+    ```
 
-Make sure your virtual environment is activated:
-```bash
-source .venv/bin/activate  # or .venv\Scripts\activate on Windows
-```
+    API2OTEL requires Python 3.10 or higher. If you have multiple Python versions, specify the version:
+    ```bash
+    python3.10 -m venv .venv
+    ```
 
-Or use `uv run`:
-```bash
-uv run otel-api-scraper --config config.yaml
-```
+4. Connection refused to OTEL collector
 
-### Python version error
-
-Check your Python version:
-```bash
-python --version
-```
-
-API2OTEL requires Python 3.10 or higher. If you have multiple Python versions, specify the version:
-```bash
-python3.10 -m venv .venv
-```
-
-### Connection refused to OTEL collector
-
-Ensure your OpenTelemetry Collector is running and accessible at the endpoint specified in `config.yaml`:
-```bash
-curl -v http://localhost:4318/  # If using HTTP
-```
+    Ensure your OpenTelemetry Collector is running and accessible at the endpoint specified in `config.yaml`:
+    ```bash
+    curl -v http://localhost:4318/  # If using HTTP
+    ```
 
 ---
 
