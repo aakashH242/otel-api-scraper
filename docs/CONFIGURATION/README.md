@@ -2,7 +2,7 @@
 
 This directory contains comprehensive documentation for configuring the OTEL API Scraper.
 
-Full config explained: https://github.com/aakashH242/otel-api-scraper/blob/main/config.yaml.template
+Full config explained: [Click here](https://github.com/aakashH242/otel-api-scraper/blob/main/config.yaml.template)
 
 [Download Config Template](../config.yaml.template)
 
