@@ -1,9 +1,9 @@
 ---
 name: ❓ Question / Help
-description: Ask a question or get help using API2OTEL
+about: Ask a question or get help using API2OTEL
 title: "[QUESTION] "
 labels: ["question", "help"]
-assignees: []
+assignees: ''
 ---
 
 ## ❓ Question
