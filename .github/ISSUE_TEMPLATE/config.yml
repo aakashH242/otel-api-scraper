@@ -1,0 +1,9 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📚 Documentation
+    url: https://aakashh242.github.io/otel-api-scraper/
+    about: Browse the full documentation and guides
+  - name: 🗺️ Roadmap
+    url: https://github.com/aakashH242/otel-api-scraper/blob/main/ROADMAP.md
+    about: See what's planned for future releases
+
