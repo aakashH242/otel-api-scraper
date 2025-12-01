@@ -15,8 +15,7 @@
 
 > Config-driven async bridge that turns any HTTP/data API into OpenTelemetry metrics and logs. 
 
-For those use-cases when you have data, jobs, or business processes buried behind APIs, reports, or REST API endpoints 
-and you want them to show up as first-class signals in your existing OTEL stack – without writing a custom exporter for each system.
+Turn APIs and data endpoints into observable signals. Get business metrics and logs into your OTEL stack without custom code.
 
 ## 💡 A Common Use-case
 
