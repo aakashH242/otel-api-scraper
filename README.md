@@ -31,9 +31,6 @@ Instead of "write a mini integration for every API", you version a config, commi
 
 This service is designed to integrate cleanly onto an existing observability stack [(or create a new one using this example)](docs/LOCAL_TESTING.md).
 
-
-
-
 ## 💡 A Common Use-case
 
 Most teams run critical flows on systems they don't control:
