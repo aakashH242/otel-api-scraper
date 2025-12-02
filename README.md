@@ -1,10 +1,12 @@
-
-
 # 🔌 API2OTEL (otel-api-scraper) – Any API → 📊 OTEL metrics & logs ✨
 
 <p align="center">
   <img src="docs/logo.png" alt="API2OTEL Logo" width="250"/>
 </p>
+
+> A service that turns SaaS and internal APIs into OpenTelemetry metrics and logs, feeding business and process observability directly into your existing OTEL stack.
+> Provides filtering and deduplication options out of the box so that you do not pollute your stack with repeated duplicates.
+
 
 ![Release](https://img.shields.io/github/v/release/aakashH242/otel-api-scraper?sort=semver)
 ![Lint](https://img.shields.io/github/actions/workflow/status/aakashH242/otel-api-scraper/ci.yml?branch=main&label=lint)
@@ -13,9 +15,21 @@
 [![Docs](https://img.shields.io/badge/docs-online-blue)](https://aakashh242.github.io/otel-api-scraper/)
 
 
-> Config-driven async bridge that turns any HTTP/data API into OpenTelemetry metrics and logs. 
+**API2OTEL** is a YAML‑driven async scraper that turns uninstrumented HTTP/JSON APIs into first‑class OpenTelemetry metrics and logs—without building one‑off exporters or wiring custom code. Point it at the APIs that hide your operational or business state and it will poll, extract, shape, deduplicate, and emit telemetry through the OTEL pipeline you already run.
 
-Turn APIs and data endpoints into observable signals. Get business metrics and logs into your OTEL stack without custom code.
+Most API surfaces (SaaS, internal platforms, scheduled batch endpoints) already contain answers to questions teams ask in dashboards: queue depth, job runtimes, sync failures, external SLAs, integration throughput. They rarely expose native OTEL or Prometheus signals. The usual "solution" becomes a patchwork of cron scripts, throwaway Python, or bespoke collectors that are hard to extend and impossible to standardize.
+
+API2OTEL focuses on turning that glue work into a declarative layer:
+
+- Define sources, auth, scrape cadence, and time windows in one file.
+- Map raw JSON fields to gauges, counters, histograms, and structured logs.
+- Apply record filtering, volume caps, and fingerprint‑based deduplication so backends stay lean.
+- Run historical backfills (range scrapes) and ongoing incremental polls side by side.
+- Observe the scraper itself (self‑telemetry) to catch stalls, slow scrapes, or ineffective dedupe.
+
+Instead of "write a mini integration for every API", you version a config, commit it, and gain portable, reviewable observability coverage. 
+
+This service is designed to integrate cleanly onto an existing observability stack [(or create a new one using this example)](docs/LOCAL_TESTING.md).
 
 ## 💡 A Common Use-case
 
@@ -480,4 +494,3 @@ Contributions welcome! Areas of interest:
 ## 📄 License
 
 [LICENSE](./LICENSE)
-
