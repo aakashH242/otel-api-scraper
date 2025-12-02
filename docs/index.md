@@ -1,8 +1,20 @@
 # Overview
 
-**API2OTEL** is a config-driven async bridge that turns any HTTP/data API into OpenTelemetry metrics and logs.
 
-Turn APIs and data endpoints into observable signals. Get business metrics and logs into your OTEL stack without custom code.
+**API2OTEL** is a YAML‑driven async scraper that turns uninstrumented HTTP/JSON APIs into first‑class OpenTelemetry metrics and logs—without building one‑off exporters or wiring custom code. Point it at the APIs that hide your operational or business state and it will poll, extract, shape, deduplicate, and emit telemetry through the OTEL pipeline you already run.
+
+Most API surfaces (SaaS, internal platforms, scheduled batch endpoints) already contain answers to questions teams ask in dashboards: queue depth, job runtimes, sync failures, external SLAs, integration throughput. They rarely expose native OTEL or Prometheus signals. The usual "solution" becomes a patchwork of cron scripts, throwaway Python, or bespoke collectors that are hard to extend and impossible to standardize.
+
+API2OTEL focuses on turning that glue work into a declarative layer:
+
+- Define sources, auth, scrape cadence, and time windows in one file.
+- Map raw JSON fields to gauges, counters, histograms, and structured logs.
+- Apply record filtering, volume caps, and fingerprint‑based deduplication so backends stay lean.
+- Run historical backfills (range scrapes) and ongoing incremental polls side by side.
+- Observe the scraper itself (self‑telemetry) to catch stalls, slow scrapes, or ineffective dedupe.
+
+Instead of "write a mini integration for every API", you version a config, commit it, and gain portable, reviewable observability coverage. 
+
 
 ## 💡 The Problem
 
